@@ -10,7 +10,7 @@ interface MeshVisualizerProps {
 export const MeshVisualizer: React.FC<MeshVisualizerProps> = ({ meshData, onSelectNode }) => {
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
-  if (!meshData) {
+  if (!meshData || !meshData.nodes || meshData.nodes.length === 0) {
     return (
       <div className="bg-white rounded-lg p-8 text-center text-slate-400 border border-slate-200">
         Loading Wireless Surface Mesh Topology...

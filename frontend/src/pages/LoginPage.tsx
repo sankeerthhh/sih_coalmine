@@ -116,7 +116,7 @@ export const LoginPage: React.FC = () => {
         </form>
 
         {/* Demo Credentials Quick Fill Box */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 text-xs">
+        <div className="p-4 bg-slate-50 border-t border-slate-200 text-xs space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <span className="font-bold text-slate-700 block text-[11px]">Demo Admin Credentials:</span>
@@ -127,9 +127,25 @@ export const LoginPage: React.FC = () => {
               onClick={fillDemoCreds}
               className="px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-800 text-[11px] font-semibold transition"
             >
-              Fill Demo
+              Fill Fields
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              login('demo-admin-token', {
+                id: 1,
+                email: 'admin@coal.gov.in',
+                full_name: 'Mine Safety Officer (SECL)',
+                role: 'ADMIN'
+              });
+            }}
+            className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>Instant Demo Launch (SIH Presentation Mode)</span>
+          </button>
         </div>
       </div>
     </div>

@@ -13,11 +13,20 @@ export const useAuthStore = create<AuthState>((set) => {
   const savedToken = localStorage.getItem('mine_subsidence_token');
   const savedUser = localStorage.getItem('mine_subsidence_user');
 
-  // Only restore session if a real JWT token was previously saved
-  const isValidSession = Boolean(savedToken && savedToken !== 'demo-admin-token' && savedUser);
+  // Restore session if token and user exist
+  let initialUser: User | null = null;
+  let isValidSession = false;
+  try {
+    if (savedToken && savedUser) {
+      initialUser = JSON.parse(savedUser);
+      isValidSession = true;
+    }
+  } catch {
+    isValidSession = false;
+  }
 
   return {
-    user: isValidSession ? JSON.parse(savedUser!) : null,
+    user: isValidSession ? initialUser : null,
     token: isValidSession ? savedToken : null,
     isAuthenticated: isValidSession,
 

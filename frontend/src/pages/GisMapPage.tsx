@@ -10,14 +10,13 @@ interface GisMapPageProps {
 }
 
 export const GisMapPage: React.FC<GisMapPageProps> = ({ onNavigatePage }) => {
-  const { sensors, selectedSensorId, setSelectedSensorId } = useSensorStore();
+  const { sensors, selectedSensorId, setSelectedSensorId, selectedPanelId, setSelectedPanelId } = useSensorStore();
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [panelFilter, setPanelFilter] = useState<string>('ALL');
   const [drawerNode, setDrawerNode] = useState<SensorNode | null>(null);
 
   const filteredSensors = sensors.filter((s) => {
     const matchesStatus = statusFilter === 'ALL' || s.status === statusFilter;
-    const matchesPanel = panelFilter === 'ALL' || s.panel_id === panelFilter;
+    const matchesPanel = selectedPanelId === 'ALL' || s.panel_id === selectedPanelId;
     return matchesStatus && matchesPanel;
   });
 
@@ -46,8 +45,8 @@ export const GisMapPage: React.FC<GisMapPageProps> = ({ onNavigatePage }) => {
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded px-2.5 py-1">
             <span className="text-slate-500 font-medium">Panel:</span>
             <select
-              value={panelFilter}
-              onChange={(e) => setPanelFilter(e.target.value)}
+              value={selectedPanelId}
+              onChange={(e) => setSelectedPanelId(e.target.value)}
               className="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer"
             >
               <option value="ALL">All Panels (5)</option>
@@ -94,6 +93,7 @@ export const GisMapPage: React.FC<GisMapPageProps> = ({ onNavigatePage }) => {
         node={drawerNode}
         onClose={() => setDrawerNode(null)}
         onViewAnalytics={(nodeId) => {
+          setSelectedSensorId(nodeId);
           setDrawerNode(null);
           onNavigatePage('analytics');
         }}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, Battery, Wifi, Activity, AlertTriangle, Clock, ArrowUpRight } from 'lucide-react';
 import { SensorNode } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
@@ -10,6 +10,14 @@ interface NodeDetailDrawerProps {
 }
 
 export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({ node, onClose, onViewAnalytics }) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   if (!node) return null;
 
   const reading = node.latest_reading;
@@ -18,7 +26,7 @@ export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({ node, onClos
     : '0.00';
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl border-l border-slate-200 z-50 flex flex-col justify-between">
+    <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl border-l border-slate-200 z-50 flex flex-col justify-between animate-in slide-in-from-right duration-200">
       {/* Drawer Header */}
       <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
         <div>

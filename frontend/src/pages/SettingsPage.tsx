@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Settings, Sliders, ShieldAlert, Plus, Check, Save, Radio, Trash2 } from 'lucide-react';
 import { useSensorStore } from '../store/sensorStore';
+import { SensorNode } from '../types';
 
 export const SettingsPage: React.FC = () => {
-  const { sensors } = useSensorStore();
+  const { sensors, thresholds, updateThresholds, addSensor, removeSensor } = useSensorStore();
 
-  const [warningThreshold, setWarningThreshold] = useState(30);
-  const [highThreshold, setHighThreshold] = useState(60);
-  const [criticalThreshold, setCriticalThreshold] = useState(80);
-  const [samplingInterval, setSamplingInterval] = useState(6);
+  const [warningThreshold, setWarningThreshold] = useState(thresholds.warningThreshold);
+  const [highThreshold, setHighThreshold] = useState(thresholds.highThreshold);
+  const [criticalThreshold, setCriticalThreshold] = useState(thresholds.criticalThreshold);
+  const [samplingInterval, setSamplingInterval] = useState(thresholds.samplingInterval);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // New Node Form State
@@ -20,13 +21,50 @@ export const SettingsPage: React.FC = () => {
 
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
+    updateThresholds({
+      warningThreshold,
+      highThreshold,
+      criticalThreshold,
+      samplingInterval
+    });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
 
   const handleAddNode = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newNodeId) return;
+    if (!newNodeId.trim()) return;
+    const formattedId = newNodeId.trim().toUpperCase();
+    const nodeObj: SensorNode = {
+      id: formattedId,
+      panel_id: newNodePanel,
+      name: `Surface Sensor ${formattedId}`,
+      latitude: parseFloat(newNodeLat) || 22.3650,
+      longitude: parseFloat(newNodeLon) || 82.7570,
+      hardware_model: "ESP32-SX1262-TiltNode",
+      mesh_parent_id: "N10",
+      is_gateway: false,
+      status: "ONLINE",
+      battery_level: 95.0,
+      signal_strength_rssi: -68,
+      last_seen_at: new Date().toISOString(),
+      latest_reading: {
+        id: Date.now(),
+        node_id: formattedId,
+        timestamp: new Date().toISOString(),
+        tilt_x: 0.14,
+        tilt_y: 0.17,
+        displacement: 1.2,
+        vibration: 0.08,
+        crack_detected: false,
+        battery_level: 95.0,
+        signal_strength: -68,
+        anomaly_score: 11.2,
+        is_outlier: false,
+        resultant_tilt: 0.22
+      }
+    };
+    addSensor(nodeObj);
     setNodeAddSuccess(true);
     setTimeout(() => {
       setNodeAddSuccess(false);
@@ -235,6 +273,63 @@ export const SettingsPage: React.FC = () => {
             <span>{nodeAddSuccess ? 'Node Provisioned Successfully!' : 'Register Sensor Node'}</span>
           </button>
         </form>
+      </div>
+
+      {/* Card 3: Provisioned Surface Sensors Directory & Management */}
+      <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-xs">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+          <div>
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Radio className="w-3.5 h-3.5 text-blue-600" />
+              Provisioned Node Registry ({sensors.length} Active Hardware Units)
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              Live hardware telemetry units communicating via LoRa mesh
+            </p>
+          </div>
+          <span className="text-xs font-mono text-slate-500 font-semibold">
+            Cadence: {samplingInterval}s
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
+          {sensors.map((sensor) => (
+            <div
+              key={sensor.id}
+              className="p-2.5 rounded-md border border-slate-200 bg-slate-50/70 flex items-center justify-between hover:bg-white transition"
+            >
+              <div>
+                <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                  <span className={`w-2 h-2 rounded-full ${
+                    sensor.status === 'CRITICAL' ? 'bg-red-600' :
+                    sensor.status === 'WARNING' ? 'bg-amber-500' :
+                    sensor.status === 'OFFLINE' ? 'bg-slate-400' : 'bg-emerald-600'
+                  }`} />
+                  {sensor.id}
+                  {sensor.is_gateway && (
+                    <span className="text-[9px] bg-blue-100 text-blue-800 px-1 py-0.2 rounded font-bold">
+                      GW
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] text-slate-500 block mt-0.5">
+                  {sensor.panel_id}
+                </span>
+              </div>
+
+              {!sensor.is_gateway && (
+                <button
+                  type="button"
+                  onClick={() => removeSensor(sensor.id)}
+                  title={`Deprovision node ${sensor.id}`}
+                  className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

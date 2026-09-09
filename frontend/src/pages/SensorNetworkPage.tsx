@@ -15,6 +15,7 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
   const { sensors, selectedSensorId, setSelectedSensorId } = useSensorStore();
   const [meshData, setMeshData] = useState<MeshNetwork | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [drawerNode, setDrawerNode] = useState<SensorNode | null>(null);
 
   useEffect(() => {
@@ -23,7 +24,9 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
 
   const filteredSensors = sensors.filter((s) => {
     const q = searchQuery.toLowerCase();
-    return s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || s.panel_id.toLowerCase().includes(q);
+    const matchesSearch = s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || s.panel_id.toLowerCase().includes(q);
+    const matchesStatus = statusFilter === 'ALL' || s.status === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
   const handleRowClick = (node: SensorNode) => {
@@ -56,7 +59,24 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Status Filter Buttons */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200">
+              {['ALL', 'ONLINE', 'WARNING', 'CRITICAL', 'OFFLINE'].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition ${
+                    statusFilter === status
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
               <input
@@ -64,7 +84,7 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search node or panel..."
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 w-52"
+                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 w-48"
               />
             </div>
           </div>
@@ -154,11 +174,18 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
                     </td>
 
                     <td className="py-2.5 px-3 text-[11px] text-slate-500 font-mono">
-                      {new Date(node.last_seen_at).toLocaleTimeString()}
+                      {node.last_seen_at ? new Date(node.last_seen_at).toLocaleTimeString() : 'Recent'}
                     </td>
                   </tr>
                 );
               })}
+              {filteredSensors.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
+                    No sensor nodes match the selected criteria.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -169,6 +196,7 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
         node={drawerNode}
         onClose={() => setDrawerNode(null)}
         onViewAnalytics={(nodeId) => {
+          setSelectedSensorId(nodeId);
           setDrawerNode(null);
           onNavigatePage('analytics');
         }}

@@ -4,16 +4,21 @@ import { api } from '../../services/api';
 import { useSensorStore } from '../../store/sensorStore';
 
 export const DemoSimulatorBar: React.FC = () => {
-  const { activeScenario, setActiveScenario } = useSensorStore();
+  const { activeScenario, setActiveScenario, applyLocalScenario } = useSensorStore();
   const [loading, setLoading] = useState(false);
 
   const handleTrigger = async (scenario: string) => {
     try {
       setLoading(true);
+      // Immediately transform local store state for instant visual feedback
+      applyLocalScenario(scenario);
+      // Also notify backend if online
       const res = await api.triggerSimulatorScenario(scenario);
-      setActiveScenario(res.current_scenario);
+      if (res?.current_scenario) {
+        setActiveScenario(res.current_scenario);
+      }
     } catch (err) {
-      console.error("Simulator trigger error:", err);
+      console.warn("Simulator backend notification deferred:", err);
     } finally {
       setLoading(false);
     }

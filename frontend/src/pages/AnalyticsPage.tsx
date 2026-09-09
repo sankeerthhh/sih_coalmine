@@ -10,6 +10,7 @@ export const AnalyticsPage: React.FC = () => {
   const [trendData, setTrendData] = useState<any[]>([]);
   const [riskData, setRiskData] = useState<any[]>([]);
   const [activeMetric, setActiveMetric] = useState<'all' | 'tilt' | 'displacement' | 'vibration'>('all');
+  const [exportSuccess, setExportSuccess] = useState(false);
 
   useEffect(() => {
     const targetNode = selectedSensorId || 'N14';
@@ -22,7 +23,10 @@ export const AnalyticsPage: React.FC = () => {
   }, [selectedSensorId, rangeStr]);
 
   const handleExportCSV = () => {
-    if (!trendData || trendData.length === 0) return;
+    if (!trendData || trendData.length === 0) {
+      alert("No telemetry records available to export for this time range.");
+      return;
+    }
     const headers = ["Timestamp", "NodeID", "ResultantTilt_deg", "Displacement_mm", "Vibration_RMS", "CrackDetected", "AnomalyScore"];
     const rows = trendData.map(d => [
       d.timestamp,
@@ -42,6 +46,9 @@ export const AnalyticsPage: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    setExportSuccess(true);
+    setTimeout(() => setExportSuccess(false), 2500);
   };
 
   return (
@@ -121,7 +128,7 @@ export const AnalyticsPage: React.FC = () => {
             className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded font-bold transition flex items-center gap-1.5 shadow-xs"
           >
             <Download className="w-3.5 h-3.5" />
-            Export CSV
+            {exportSuccess ? 'CSV Exported!' : 'Export CSV'}
           </button>
         </div>
       </div>
@@ -151,12 +158,12 @@ export const AnalyticsPage: React.FC = () => {
         </div>
 
         <SensorTrendChart
-          data={trendData.map(d => ({
-            timestamp: d.timestamp,
-            displacement: d.anomaly_score // reuse line with anomaly score percentage
-          }))}
-          title="Anomaly Score Index (%)"
-          metric="displacement"
+          data={trendData}
+          title="AI Anomaly Score Progression (%)"
+          metric="custom"
+          customMetricKey="anomaly_score"
+          customMetricName="Anomaly Score (%)"
+          customColor="#EA580C"
           height={220}
         />
       </div>

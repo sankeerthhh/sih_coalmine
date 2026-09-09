@@ -21,7 +21,7 @@ interface AlertsPageProps {
 }
 
 export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
-  const { alerts, setAlerts, setSelectedSensorId } = useSensorStore();
+  const { alerts, setAlerts, setSelectedSensorId, acknowledgeAlertLocal, resolveAlertLocal } = useSensorStore();
   const [severityFilter, setSeverityFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -33,10 +33,11 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
   const handleAcknowledge = async (alertId: string) => {
     try {
       setLoadingAction(alertId);
+      acknowledgeAlertLocal(alertId, 'Mine Safety Officer (SECL)');
       const updated = await api.acknowledgeAlert(alertId, 'Mine Safety Officer (SECL)');
       setAlerts(alerts.map(a => a.id === alertId ? updated : a));
     } catch (err) {
-      console.error("Acknowledge alert error:", err);
+      console.warn("Acknowledge fallback active:", err);
     } finally {
       setLoadingAction(null);
     }
@@ -45,10 +46,11 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
   const handleResolve = async (alertId: string) => {
     try {
       setLoadingAction(alertId);
+      resolveAlertLocal(alertId, 'Mine Safety Officer (SECL)');
       const updated = await api.resolveAlert(alertId, 'Mine Safety Officer (SECL)');
       setAlerts(alerts.map(a => a.id === alertId ? updated : a));
     } catch (err) {
-      console.error("Resolve alert error:", err);
+      console.warn("Resolve fallback active:", err);
     } finally {
       setLoadingAction(null);
     }
@@ -202,7 +204,8 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
-                      setSelectedSensorId('N14');
+                      const matchedNode = alt.node_cluster.match(/N\d+/)?.[0] || 'N14';
+                      setSelectedSensorId(matchedNode);
                       onNavigatePage('gis-map');
                     }}
                     className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-semibold transition flex items-center gap-1.5"
@@ -211,7 +214,11 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
                     <span>View Cluster on GIS Map</span>
                   </button>
                   <button
-                    onClick={() => onNavigatePage('analytics')}
+                    onClick={() => {
+                      const matchedNode = alt.node_cluster.match(/N\d+/)?.[0] || 'N14';
+                      setSelectedSensorId(matchedNode);
+                      onNavigatePage('analytics');
+                    }}
                     className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-semibold transition"
                   >
                     Inspect Trends

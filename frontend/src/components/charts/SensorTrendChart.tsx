@@ -13,7 +13,10 @@ import {
 interface SensorTrendChartProps {
   data: any[];
   title?: string;
-  metric?: 'tilt' | 'displacement' | 'vibration' | 'all';
+  metric?: 'tilt' | 'displacement' | 'vibration' | 'all' | 'custom';
+  customMetricKey?: string;
+  customMetricName?: string;
+  customColor?: string;
   height?: number;
 }
 
@@ -21,6 +24,9 @@ export const SensorTrendChart: React.FC<SensorTrendChartProps> = ({
   data,
   title = "Geotechnical Deformation Trends (Past 24h)",
   metric = 'all',
+  customMetricKey,
+  customMetricName,
+  customColor = '#DC2626',
   height = 280
 }) => {
   if (!data || data.length === 0) {
@@ -34,10 +40,11 @@ export const SensorTrendChart: React.FC<SensorTrendChartProps> = ({
   // Format timestamp for X-axis
   const formattedData = data.map(d => ({
     ...d,
-    timeLabel: new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    timeLabel: d.timestamp ? new Date(d.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
     tilt: d.resultant_tilt !== undefined ? d.resultant_tilt : Math.sqrt((d.tilt_x||0)**2 + (d.tilt_y||0)**2),
     displacement: d.displacement,
-    vibration: d.vibration
+    vibration: d.vibration,
+    customVal: customMetricKey ? d[customMetricKey] : undefined
   }));
 
   return (
@@ -52,7 +59,7 @@ export const SensorTrendChart: React.FC<SensorTrendChartProps> = ({
       </div>
 
       <div style={{ width: '100%', height }}>
-        <ResponsiveContainer>
+        <ResponsiveContainer width="100%" height="100%">
           <LineChart data={formattedData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
             <XAxis
@@ -77,6 +84,18 @@ export const SensorTrendChart: React.FC<SensorTrendChartProps> = ({
             />
             <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
 
+            {metric === 'custom' && (
+              <Line
+                type="monotone"
+                dataKey="customVal"
+                name={customMetricName || "Value"}
+                stroke={customColor}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            )}
+
             {(metric === 'all' || metric === 'tilt') && (
               <Line
                 type="monotone"
@@ -93,7 +112,7 @@ export const SensorTrendChart: React.FC<SensorTrendChartProps> = ({
               <Line
                 type="monotone"
                 dataKey="displacement"
-                name="Displacement (mm)"
+                name={customMetricName || "Displacement (mm)"}
                 stroke="#DC2626"
                 strokeWidth={2}
                 dot={false}

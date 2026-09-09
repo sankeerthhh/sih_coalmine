@@ -291,6 +291,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigatePage }) 
         node={drawerNode}
         onClose={() => setDrawerNode(null)}
         onViewAnalytics={(nodeId) => {
+          setSelectedSensorId(nodeId);
           setDrawerNode(null);
           onNavigatePage('analytics');
         }}
