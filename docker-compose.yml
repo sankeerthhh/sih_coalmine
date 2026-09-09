@@ -1,6 +1,33 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: subsidence_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-coaladmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CoalPass2026}
+      POSTGRES_DB: ${POSTGRES_DB:-mine_subsidence}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/supabase_schema_and_seed.sql:/docker-entrypoint-initdb.d/01_schema_and_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-coaladmin} -d ${POSTGRES_DB:-mine_subsidence}"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: subsidence_mqtt
+    ports:
+      - "1883:1883"
+    command: mosquitto -c /mosquitto-no-auth.conf
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -9,13 +36,22 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql://coaladmin:CoalPass2026@postgres:5432/mine_subsidence
-      - SECRET_KEY=sih-2026-coal-india-mine-subsidence-secret-key-32bytes
-      - MQTT_BROKER=mosquitto
-      - MQTT_PORT=1883
+      - DATABASE_URL=${DATABASE_URL:-postgresql://coaladmin:CoalPass2026@postgres:5432/mine_subsidence}
+      - SECRET_KEY=${SECRET_KEY:-sih-2026-coal-india-mine-subsidence-secret-key-32bytes}
+      - MQTT_BROKER=${MQTT_BROKER:-mosquitto}
+      - MQTT_PORT=${MQTT_PORT:-1883}
+      - MQTT_ENABLED=${MQTT_ENABLED:-false}
     depends_on:
-      - postgres
-      - mosquitto
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     restart: unless-stopped
 
   frontend:
@@ -24,29 +60,11 @@ services:
       dockerfile: Dockerfile
     container_name: subsidence_frontend
     ports:
-      - "5173:5173"
+      - "5173:80"
+      - "80:80"
     depends_on:
-      - backend
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: subsidence_postgres
-    environment:
-      POSTGRES_USER: coaladmin
-      POSTGRES_PASSWORD: CoalPass2026
-      POSTGRES_DB: mine_subsidence
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-  mosquitto:
-    image: eclipse-mosquitto:2.0
-    container_name: subsidence_mqtt
-    ports:
-      - "1883:1883"
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

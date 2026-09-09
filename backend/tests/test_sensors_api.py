@@ -2,9 +2,12 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
-client = TestClient(app)
+@pytest.fixture(scope="module")
+def client():
+    with TestClient(app) as c:
+        yield c
 
-def test_api_root_and_health():
+def test_api_root_and_health(client):
     resp = client.get("/")
     assert resp.status_code == 200
     data = resp.json()
@@ -14,7 +17,7 @@ def test_api_root_and_health():
     assert health_resp.status_code == 200
     assert health_resp.json()["status"] == "HEALTHY"
 
-def test_auth_login_endpoint():
+def test_auth_login_endpoint(client):
     # Valid login
     resp = client.post("/api/v1/auth/login", json={
         "email": "admin@coal.gov.in",
@@ -32,7 +35,7 @@ def test_auth_login_endpoint():
     })
     assert bad_resp.status_code == 401
 
-def test_dashboard_summary():
+def test_dashboard_summary(client):
     resp = client.get("/api/v1/dashboard/summary")
     assert resp.status_code == 200
     data = resp.json()
@@ -40,7 +43,7 @@ def test_dashboard_summary():
     assert "Panel B3" in data["active_panel"]
     assert "Prototype" in data["disclaimer"]
 
-def test_list_sensors_and_mesh():
+def test_list_sensors_and_mesh(client):
     sensors_resp = client.get("/api/v1/sensors")
     assert sensors_resp.status_code == 200
     nodes = sensors_resp.json()
@@ -52,7 +55,7 @@ def test_list_sensors_and_mesh():
     assert mesh["total_nodes"] == 24
     assert len(mesh["links"]) > 10
 
-def test_simulator_scenario_trigger():
+def test_simulator_scenario_trigger(client):
     resp = client.post("/api/v1/simulator/scenario", json={"scenario": "NORMAL"})
     assert resp.status_code == 200
     status = resp.json()

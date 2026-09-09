@@ -22,13 +22,14 @@ async def telemetry_background_loop():
     logger.info("Starting background telemetry generation loop...")
     while True:
         try:
-            await asyncio.sleep(6)
-            await simulator_service.execute_tick()
+            await asyncio.sleep(10)
+            if simulator_service.is_running:
+                await simulator_service.execute_tick()
         except asyncio.CancelledError:
             break
         except Exception as err:
             logger.error(f"Error in telemetry loop: {err}")
-            await asyncio.sleep(6)
+            await asyncio.sleep(10)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

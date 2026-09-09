@@ -46,20 +46,30 @@ class SensorService:
 
         # Query neighbor tilts within the same panel for spatial correlation
         neighbor_nodes = (
-            db.query(SensorNode)
+            db.query(SensorNode.id)
             .filter(SensorNode.panel_id == node.panel_id, SensorNode.id != node.id)
             .all()
         )
+        neighbor_ids = [n[0] for n in neighbor_nodes]
         neighbor_tilts = []
-        for n in neighbor_nodes:
-            latest = (
-                db.query(SensorReading)
-                .filter(SensorReading.node_id == n.id)
-                .order_by(SensorReading.timestamp.desc())
-                .first()
+        if neighbor_ids:
+            from sqlalchemy import func
+            subq = (
+                db.query(
+                    SensorReading.node_id,
+                    func.max(SensorReading.id).label("max_id")
+                )
+                .filter(SensorReading.node_id.in_(neighbor_ids))
+                .group_by(SensorReading.node_id)
+                .subquery()
             )
-            if latest:
-                neighbor_tilts.append((latest.tilt_x**2 + latest.tilt_y**2)**0.5)
+            latest_readings = (
+                db.query(SensorReading.tilt_x, SensorReading.tilt_y)
+                .join(subq, SensorReading.id == subq.c.max_id)
+                .all()
+            )
+            for r in latest_readings:
+                neighbor_tilts.append((r[0]**2 + r[1]**2)**0.5)
 
         # Stage 2 & 3: Noise Filtering & Feature Extraction
         features = feature_extractor.extract_node_features(
@@ -129,10 +139,14 @@ class SensorService:
             spatial_correlation_factor=risk_result["spatial_correlation_factor"],
             explanation=risk_result["explanation"]
         )
-        db.add(assessment)
-        db.commit()
-        db.refresh(reading)
-        db.refresh(node)
+        try:
+            db.add(assessment)
+            db.commit()
+            db.refresh(reading)
+            db.refresh(node)
+        except Exception:
+            db.rollback()
+            raise
 
         # Generate alert if abnormal condition
         alert_obj = None

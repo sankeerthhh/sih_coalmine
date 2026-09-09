@@ -32,6 +32,7 @@ class SimulatorService:
 
     async def set_scenario(self, scenario: str, speed: float = 1.0) -> Dict[str, Any]:
         self.current_scenario = scenario.upper()
+        self.is_running = True
         self.tick_count = 0
 
         db = SessionLocal()
@@ -75,11 +76,14 @@ class SimulatorService:
                     repeater_link.link_quality_lqi = 0
                     db.commit()
 
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 
-        # Run a telemetry burst for immediate visual feedback
-        await self.execute_tick()
+        # Run a telemetry burst in background for immediate visual feedback
+        asyncio.create_task(self.execute_tick())
 
         # Broadcast scenario change
         await connection_manager.broadcast({
@@ -144,7 +148,12 @@ class SimulatorService:
                 try:
                     await sensor_service.process_telemetry(db, telemetry)
                 except Exception:
-                    pass
+                    db.rollback()
+                
+                # Yield control to event loop so other HTTP requests are processed with zero latency
+                await asyncio.sleep(0.01)
+        except Exception:
+            db.rollback()
         finally:
             db.close()
 

@@ -115,15 +115,52 @@ npm.cmd run build
 
 ---
 
-## 8. Docker Deployment
+## 8. Docker & Cloud Production Deployment
+
+### Option A: Local / VPS Full-Stack Docker Compose
+Deploy all 4 services (Frontend Nginx, FastAPI Backend, PostgreSQL DB, Mosquitto MQTT) with automated schema and seed initialization:
 
 ```bash
-docker compose up --build
+docker compose up --build -d
 ```
-- Frontend: [http://localhost:5173](http://localhost:5173)
-- Backend API: [http://localhost:8000](http://localhost:8000)
-- MQTT Broker: Port 1883
-- PostgreSQL: Port 5432
+
+- **Frontend Application**: [http://localhost:5173](http://localhost:5173) or [http://localhost](http://localhost)
+- **Backend API & Swagger**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **PostgreSQL Database**: Port `5432` *(Auto-seeded from `database/supabase_schema_and_seed.sql` on initial container launch)*
+- **Mosquitto MQTT Broker**: Port `1883`
+
+To stop services:
+```bash
+docker compose down
+```
+
+---
+
+### Option B: Cloud PaaS Deployment (Render + Supabase + Vercel)
+
+#### 1. Database (Supabase Cloud PostgreSQL)
+The platform is natively pre-configured for Supabase PostgreSQL. The full schema and demonstrative seed data script is located in:
+[`database/supabase_schema_and_seed.sql`](database/supabase_schema_and_seed.sql)
+
+#### 2. Backend (Render Web Service)
+Using the included [`render.yaml`](render.yaml) blueprint:
+1. Connect your GitHub repository to [Render.com](https://render.com).
+2. Create a new **Blueprint** instance selecting `render.yaml`.
+3. Set your `DATABASE_URL` environment variable pointing to your Supabase PostgreSQL pooler or instance.
+
+#### 3. Frontend (Vercel or Netlify)
+The frontend includes [`frontend/vercel.json`](frontend/vercel.json) for automatic SPA routing fallback:
+1. Import the `frontend/` folder into [Vercel](https://vercel.com).
+2. Set Framework Preset to **Vite**.
+3. Build command: `npm run build` | Output directory: `dist`.
+
+---
+
+### Option C: Continuous Integration (GitHub Actions)
+The repository includes automated CI in [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+- **Backend**: Executes pytest suite with simulated telemetry and auth validation.
+- **Frontend**: Enforces TypeScript compilation and Vite production bundle integrity.
+- **Docker**: Automatically validates compose configuration syntax on every push.
 
 ---
 

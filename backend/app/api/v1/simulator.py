@@ -5,7 +5,7 @@ from app.services.simulator_service import simulator_service
 router = APIRouter(prefix="/simulator", tags=["SIH Demonstration Simulator"])
 
 @router.get("/status", response_model=SimulatorStatusResponse)
-def get_simulator_status():
+async def get_simulator_status():
     status = simulator_service.get_status()
     return SimulatorStatusResponse.model_validate(status)
 
