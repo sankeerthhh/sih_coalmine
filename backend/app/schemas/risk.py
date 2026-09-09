@@ -1,8 +1,11 @@
 from datetime import datetime
-from typing import Optional, List, Dict
-from pydantic import BaseModel
+from typing import Optional, Dict
+from pydantic import BaseModel, ConfigDict
+
 
 class RiskAssessmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     panel_id: str
     timestamp: datetime
@@ -15,8 +18,6 @@ class RiskAssessmentResponse(BaseModel):
     spatial_correlation_factor: float
     explanation: Optional[str] = None
 
-    class Config:
-        from_attributes = True
 
 class RiskSummaryResponse(BaseModel):
     current_risk_score: float
@@ -24,6 +25,6 @@ class RiskSummaryResponse(BaseModel):
     primary_panel: str
     affected_cluster: str
     factors: Dict[str, float]
-    trend_direction: str # STABLE, INCREASING, DECREASING
+    trend_direction: str  # STABLE, INCREASING, DECREASING
     scientific_disclaimer: str
     latest_assessment: Optional[RiskAssessmentResponse] = None

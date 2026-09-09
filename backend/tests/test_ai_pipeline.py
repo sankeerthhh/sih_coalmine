@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from app.ai.validation import SensorValidator
 from app.ai.feature_extraction import feature_extractor
 from app.ai.anomaly_detector import anomaly_detector
@@ -29,7 +29,7 @@ def test_sensor_validation_sanity():
 def test_ai_feature_extraction_and_risk_scoring():
     features = feature_extractor.extract_node_features(
         node_id="N14",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         tilt_x=4.0,
         tilt_y=3.0,
         displacement=35.0,

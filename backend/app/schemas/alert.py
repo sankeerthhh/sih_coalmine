@@ -1,8 +1,11 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
 
 class AlertResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     panel_id: str
     node_cluster: str
@@ -20,12 +23,11 @@ class AlertResponse(BaseModel):
     resolved_at: Optional[datetime] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
 
 class AlertAcknowledgeRequest(BaseModel):
     acknowledged_by: str = "Mine Safety Officer"
     notes: Optional[str] = None
+
 
 class AlertResolveRequest(BaseModel):
     resolved_by: str = "Mine Safety Officer"

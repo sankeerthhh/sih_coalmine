@@ -13,15 +13,13 @@ export const useAuthStore = create<AuthState>((set) => {
   const savedToken = localStorage.getItem('mine_subsidence_token');
   const savedUser = localStorage.getItem('mine_subsidence_user');
 
+  // Only restore session if a real JWT token was previously saved
+  const isValidSession = Boolean(savedToken && savedToken !== 'demo-admin-token' && savedUser);
+
   return {
-    user: savedUser ? JSON.parse(savedUser) : {
-      id: 1,
-      email: 'admin@coal.gov.in',
-      full_name: 'Mine Safety Officer (SECL)',
-      role: 'ADMIN'
-    },
-    token: savedToken || 'demo-admin-token',
-    isAuthenticated: true, // Default to true for smooth immediate demo, can be logged out
+    user: isValidSession ? JSON.parse(savedUser!) : null,
+    token: isValidSession ? savedToken : null,
+    isAuthenticated: isValidSession,
 
     login: (token: string, user: User) => {
       localStorage.setItem('mine_subsidence_token', token);

@@ -1,6 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.sensor import SensorNode
@@ -9,6 +10,25 @@ from app.schemas.sensor import SensorNodeResponse, SensorReadingResponse, Sensor
 from app.services.sensor_service import sensor_service
 
 router = APIRouter(prefix="/sensors", tags=["Sensors"])
+
+
+def _build_node_dict(node: SensorNode, latest_reading) -> dict:
+    return {
+        "id": node.id,
+        "panel_id": node.panel_id,
+        "name": node.name,
+        "latitude": node.latitude,
+        "longitude": node.longitude,
+        "hardware_model": node.hardware_model,
+        "mesh_parent_id": node.mesh_parent_id,
+        "is_gateway": node.is_gateway,
+        "status": node.status,
+        "battery_level": node.battery_level,
+        "signal_strength_rssi": node.signal_strength_rssi,
+        "last_seen_at": node.last_seen_at,
+        "latest_reading": latest_reading
+    }
+
 
 @router.get("", response_model=List[SensorNodeResponse])
 def list_sensors(
@@ -21,36 +41,32 @@ def list_sensors(
         query = query.filter(SensorNode.panel_id == panel_id)
     if status:
         query = query.filter(SensorNode.status == status.upper())
-    
+
     nodes = query.order_by(SensorNode.id.asc()).all()
-    
-    # Attach latest reading to each node
-    results = []
-    for node in nodes:
-        latest = (
-            db.query(SensorReading)
-            .filter(SensorReading.node_id == node.id)
-            .order_by(SensorReading.timestamp.desc())
-            .first()
+    node_ids = [n.id for n in nodes]
+
+    # Single subquery to fetch latest reading per node — eliminates N+1 queries
+    latest_id_subq = (
+        db.query(
+            SensorReading.node_id,
+            func.max(SensorReading.id).label("max_id")
         )
-        node_dict = {
-            "id": node.id,
-            "panel_id": node.panel_id,
-            "name": node.name,
-            "latitude": node.latitude,
-            "longitude": node.longitude,
-            "hardware_model": node.hardware_model,
-            "mesh_parent_id": node.mesh_parent_id,
-            "is_gateway": node.is_gateway,
-            "status": node.status,
-            "battery_level": node.battery_level,
-            "signal_strength_rssi": node.signal_strength_rssi,
-            "last_seen_at": node.last_seen_at,
-            "latest_reading": latest
-        }
-        results.append(SensorNodeResponse.model_validate(node_dict))
-        
-    return results
+        .filter(SensorReading.node_id.in_(node_ids))
+        .group_by(SensorReading.node_id)
+        .subquery()
+    )
+    latest_readings_rows = (
+        db.query(SensorReading)
+        .join(latest_id_subq, SensorReading.id == latest_id_subq.c.max_id)
+        .all()
+    )
+    latest_by_node = {r.node_id: r for r in latest_readings_rows}
+
+    return [
+        SensorNodeResponse.model_validate(_build_node_dict(n, latest_by_node.get(n.id)))
+        for n in nodes
+    ]
+
 
 @router.get("/{sensor_id}", response_model=SensorNodeResponse)
 def get_sensor(sensor_id: str, db: Session = Depends(get_db)):
@@ -64,22 +80,8 @@ def get_sensor(sensor_id: str, db: Session = Depends(get_db)):
         .order_by(SensorReading.timestamp.desc())
         .first()
     )
-    node_dict = {
-        "id": node.id,
-        "panel_id": node.panel_id,
-        "name": node.name,
-        "latitude": node.latitude,
-        "longitude": node.longitude,
-        "hardware_model": node.hardware_model,
-        "mesh_parent_id": node.mesh_parent_id,
-        "is_gateway": node.is_gateway,
-        "status": node.status,
-        "battery_level": node.battery_level,
-        "signal_strength_rssi": node.signal_strength_rssi,
-        "last_seen_at": node.last_seen_at,
-        "latest_reading": latest
-    }
-    return SensorNodeResponse.model_validate(node_dict)
+    return SensorNodeResponse.model_validate(_build_node_dict(node, latest))
+
 
 @router.get("/{sensor_id}/readings", response_model=List[SensorReadingResponse])
 def get_sensor_readings(
@@ -88,7 +90,7 @@ def get_sensor_readings(
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db)
 ):
-    since = datetime.utcnow() - timedelta(hours=hours)
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
     readings = (
         db.query(SensorReading)
         .filter(SensorReading.node_id == sensor_id, SensorReading.timestamp >= since)
@@ -97,6 +99,7 @@ def get_sensor_readings(
         .all()
     )
     return readings
+
 
 @router.post("/ingest")
 async def ingest_sensor_telemetry(payload: SensorReadingCreate, db: Session = Depends(get_db)):

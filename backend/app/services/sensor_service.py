@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 
@@ -42,7 +42,7 @@ class SensorService:
         if not is_valid:
             raise ValueError(f"Sensor validation failure: {error_msg}")
 
-        timestamp = data.timestamp or datetime.utcnow()
+        timestamp = data.timestamp or datetime.now(timezone.utc)
 
         # Query neighbor tilts within the same panel for spatial correlation
         neighbor_nodes = (

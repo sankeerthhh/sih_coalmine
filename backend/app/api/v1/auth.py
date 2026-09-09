@@ -1,22 +1,48 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.core.security import verify_password, create_access_token
+from app.core.security import verify_password, create_access_token, decode_access_token
 from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-@router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def _get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+    db: Session = Depends(get_db)
+) -> User:
+    """Dependency: validates JWT and returns the authenticated User, or raises 401."""
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    payload = decode_access_token(credentials.credentials)
+    if not payload or "sub" not in payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user = db.query(User).filter(User.email == payload["sub"]).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+    return user
 
-    if not verify_password(payload.password, user.hashed_password):
+
+@router.post("/login", response_model=TokenResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
@@ -34,12 +60,13 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         )
     )
 
+
 @router.get("/me", response_model=UserResponse)
-def get_current_user_profile():
-    # Demo admin profile fallback for simple seamless demo access
+def get_current_user_profile(current_user: User = Depends(_get_current_user)):
+    """Returns the profile of the currently authenticated user."""
     return UserResponse(
-        id=1,
-        email="admin@coal.gov.in",
-        full_name="Mine Safety Officer (SECL)",
-        role="ADMIN"
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        role=current_user.role
     )

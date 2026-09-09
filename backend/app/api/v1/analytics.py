@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -23,7 +23,7 @@ def get_analytics_trends(
         "30d": 720
     }
     hours = hours_map.get(range_str.lower(), 24)
-    since = datetime.utcnow() - timedelta(hours=hours)
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     readings = (
         db.query(SensorReading)

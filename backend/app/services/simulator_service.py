@@ -1,6 +1,6 @@
 import asyncio
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
 
@@ -44,7 +44,7 @@ class SimulatorService:
                     n.status = "ONLINE"
                     n.battery_level = round(random.uniform(92.0, 99.0), 1)
                     n.signal_strength_rssi = int(random.uniform(-78, -62))
-                    n.last_seen_at = datetime.utcnow()
+                    n.last_seen_at = datetime.now(timezone.utc)
                 
                 # Reset panels to NORMAL
                 panels = db.query(Panel).all()
@@ -135,7 +135,7 @@ class SimulatorService:
 
                 telemetry = SensorReadingCreate(
                     node_id=node.id,
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(timezone.utc),
                     tilt_x=tilt_x,
                     tilt_y=tilt_y,
                     displacement=displacement,

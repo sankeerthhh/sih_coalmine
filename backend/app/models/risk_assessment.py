@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -8,7 +8,7 @@ class RiskAssessment(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     panel_id = Column(String, ForeignKey("panels.id"), nullable=False, index=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     risk_score = Column(Float, nullable=False) # 0 to 100
     risk_classification = Column(String, nullable=False) # NORMAL, WARNING, HIGH, CRITICAL
     primary_contributing_node_id = Column(String, nullable=True)

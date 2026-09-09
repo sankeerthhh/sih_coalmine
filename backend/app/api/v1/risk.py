@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -58,7 +58,7 @@ def get_risk_history(
     hours: int = Query(24, ge=1, le=168),
     db: Session = Depends(get_db)
 ):
-    since = datetime.utcnow() - timedelta(hours=hours)
+    since = datetime.now(timezone.utc) - timedelta(hours=hours)
     records = (
         db.query(RiskAssessment)
         .filter(RiskAssessment.panel_id == panel_id, RiskAssessment.timestamp >= since)

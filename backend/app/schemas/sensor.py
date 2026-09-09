@@ -1,19 +1,23 @@
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, Field
+from typing import Optional
+from pydantic import BaseModel, Field, ConfigDict
+
 
 class SensorReadingCreate(BaseModel):
     node_id: str
     timestamp: Optional[datetime] = None
     tilt_x: float = Field(..., ge=-90.0, le=90.0)
     tilt_y: float = Field(..., ge=-90.0, le=90.0)
-    displacement: float = Field(..., ge=0.0, le=1000.0) # mm
-    vibration: float = Field(..., ge=0.0, le=100.0)    # mm/s RMS
+    displacement: float = Field(..., ge=0.0, le=1000.0)  # mm
+    vibration: float = Field(..., ge=0.0, le=100.0)      # mm/s RMS
     crack_detected: bool = False
     battery_level: float = Field(..., ge=0.0, le=100.0)
-    signal_strength: int = Field(..., ge=-140, le=0)   # dBm
+    signal_strength: int = Field(..., ge=-140, le=0)      # dBm
+
 
 class SensorReadingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     node_id: str
     timestamp: datetime
@@ -27,10 +31,10 @@ class SensorReadingResponse(BaseModel):
     anomaly_score: float
     is_outlier: bool
 
-    class Config:
-        from_attributes = True
 
 class SensorNodeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     panel_id: str
     name: str
@@ -45,8 +49,6 @@ class SensorNodeResponse(BaseModel):
     last_seen_at: datetime
     latest_reading: Optional[SensorReadingResponse] = None
 
-    class Config:
-        from_attributes = True
 
 class SensorNodeCreate(BaseModel):
     id: str
@@ -57,6 +59,7 @@ class SensorNodeCreate(BaseModel):
     hardware_model: Optional[str] = "LoRa-SX1262-Subsidence-V2"
     mesh_parent_id: Optional[str] = None
     is_gateway: Optional[bool] = False
+
 
 class SensorNodeUpdate(BaseModel):
     name: Optional[str] = None

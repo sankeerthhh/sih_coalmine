@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -8,7 +8,7 @@ class SensorReading(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     node_id = Column(String, ForeignKey("sensor_nodes.id"), nullable=False, index=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     tilt_x = Column(Float, default=0.0)
     tilt_y = Column(Float, default=0.0)
     displacement = Column(Float, default=0.0)  # mm

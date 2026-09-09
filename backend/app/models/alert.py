@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Float, Boolean, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -21,7 +21,7 @@ class Alert(Base):
     acknowledged_by = Column(String, nullable=True)
     acknowledged_at = Column(DateTime, nullable=True)
     resolved_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     panel = relationship("Panel", back_populates="alerts")
 

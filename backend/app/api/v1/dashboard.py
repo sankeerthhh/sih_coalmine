@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -28,7 +28,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
     risk_score = latest_risk.risk_score if latest_risk else 12.5
 
     # Look for most recent reading timestamp
-    last_update = latest_risk.timestamp if latest_risk else datetime.utcnow()
+    last_update = latest_risk.timestamp if latest_risk else datetime.now(timezone.utc)
 
     return DashboardSummaryResponse(
         mine_name=mine_name,

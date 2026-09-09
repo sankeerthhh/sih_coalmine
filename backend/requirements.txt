@@ -1,16 +1,36 @@
-fastapi>=0.115.0
-uvicorn>=0.30.0
-sqlalchemy>=2.0.30
-pydantic>=2.9.0
-pydantic-settings>=2.5.0
-scikit-learn>=1.5.0
-numpy>=1.26.0
-pandas>=2.2.0
-pyjwt>=2.9.0
-passlib>=1.7.4
-bcrypt>=4.2.0
-paho-mqtt>=2.1.0
-pytest>=8.3.0
-httpx>=0.27.0
+# Core framework
+fastapi>=0.115.0,<1.0.0
+uvicorn[standard]>=0.30.0,<1.0.0
+
+# Database
+sqlalchemy>=2.0.30,<3.0.0
+psycopg2-binary>=2.9.9   # PostgreSQL / Supabase driver (required in Docker/production)
+
+# Validation & settings
+pydantic>=2.9.0,<3.0.0
+pydantic-settings>=2.5.0,<3.0.0
+
+# AI / Data science pipeline
+scikit-learn>=1.5.0,<2.0.0
+numpy>=1.26.0,<3.0.0
+pandas>=2.2.0,<3.0.0
+
+# Authentication
+pyjwt>=2.9.0,<3.0.0
+passlib[bcrypt]>=1.7.4,<2.0.0
+bcrypt>=4.2.0,<5.0.0
+
+# MQTT integration (optional; disabled by default)
+paho-mqtt>=2.1.0,<3.0.0
+
+# System metrics (optional; gracefully degrades if unavailable)
+psutil>=6.0.0,<7.0.0
+
+# Testing
+pytest>=8.3.0,<9.0.0
+httpx>=0.27.0,<1.0.0
+anyio>=4.0.0,<5.0.0
+
+# Misc
 python-multipart>=0.0.12
-websockets>=13.0
+websockets>=13.0,<15.0
