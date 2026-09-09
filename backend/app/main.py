@@ -34,34 +34,48 @@ async def telemetry_background_loop():
             await asyncio.sleep(10)
 
 
+import os
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Create tables if not existing
-    logger.info("Initializing database tables...")
-    Base.metadata.create_all(bind=engine)
-
-    # Seed default data if database is empty (safe to fail — seeding is non-critical)
-    db = SessionLocal()
+    # Startup: Create tables if not existing (safe to fail)
     try:
-        from seed_data import seed_database
-        seed_database(db)
-    except Exception as seed_err:
-        logger.warning(f"Database seeding skipped or failed (non-critical): {seed_err}")
-    finally:
-        db.close()
+        logger.info("Initializing database tables...")
+        Base.metadata.create_all(bind=engine)
 
-    # Start background telemetry generator task
-    loop_task = asyncio.create_task(telemetry_background_loop())
+        db = SessionLocal()
+        try:
+            from seed_data import seed_database
+            seed_database(db)
+        except Exception as seed_err:
+            logger.warning(f"Database seeding skipped or failed (non-critical): {seed_err}")
+        finally:
+            db.close()
+    except Exception as db_err:
+        logger.warning(f"Database table check deferred: {db_err}")
+
+    # Background telemetry loop: run ONLY in dedicated server environments (not serverless)
+    is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+    loop_task = None
+    if not is_serverless:
+        loop_task = asyncio.create_task(telemetry_background_loop())
+        logger.info("Background telemetry loop started.")
+    else:
+        logger.info("Serverless environment detected (Vercel): background loop disabled.")
+
     logger.info("Application startup complete.")
-
     yield
 
     # Shutdown: cancel background tasks gracefully
-    loop_task.cancel()
-    try:
-        await loop_task
-    except asyncio.CancelledError:
-        pass
+    if loop_task:
+        loop_task.cancel()
+        try:
+            await loop_task
+        except asyncio.CancelledError:
+            pass
     logger.info("Application shutdown complete.")
 
 
@@ -72,13 +86,24 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware — origins are configured via BACKEND_CORS_ORIGINS in config / env
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception on {request.method} {request.url}: {exc}\n{traceback.format_exc()}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"}
+    )
+
+
+# CORS middleware — supports configured origins plus any dynamic Vercel preview domain
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app" if os.environ.get("VERCEL") else None,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Register all REST API routes under /api/v1
