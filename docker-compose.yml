@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: subsidence_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://coaladmin:CoalPass2026@postgres:5432/mine_subsidence
+      - SECRET_KEY=sih-2026-coal-india-mine-subsidence-secret-key-32bytes
+      - MQTT_BROKER=mosquitto
+      - MQTT_PORT=1883
+    depends_on:
+      - postgres
+      - mosquitto
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: subsidence_frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: subsidence_postgres
+    environment:
+      POSTGRES_USER: coaladmin
+      POSTGRES_PASSWORD: CoalPass2026
+      POSTGRES_DB: mine_subsidence
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: subsidence_mqtt
+    ports:
+      - "1883:1883"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
