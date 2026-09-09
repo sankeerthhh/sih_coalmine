@@ -39,16 +39,46 @@ def _get_current_user(
     return user
 
 
+import logging
+import traceback
+
+logger = logging.getLogger("subsidence.auth")
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == payload.email).first()
+    try:
+        user = db.query(User).filter(User.email == payload.email).first()
+        # If database is freshly initialized and empty, auto-seed default admin
+        if not user and db.query(User).count() == 0:
+            try:
+                from seed_data import seed_database
+                seed_database(db)
+                user = db.query(User).filter(User.email == payload.email).first()
+            except Exception as seed_err:
+                logger.warning(f"On-demand seeding failed: {seed_err}")
+    except Exception as exc:
+        logger.error(f"Login database error: {exc}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database query error: {str(exc)}"
+        )
+
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
 
-    token = create_access_token(subject=user.email, role=user.role)
+    try:
+        token = create_access_token(subject=user.email, role=user.role)
+    except Exception as exc:
+        logger.error(f"Token creation error: {exc}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Token generation error: {str(exc)}"
+        )
+
     return TokenResponse(
         access_token=token,
         token_type="bearer",
