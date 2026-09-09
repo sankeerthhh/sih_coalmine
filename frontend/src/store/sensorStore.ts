@@ -8,12 +8,22 @@ export interface ThresholdConfig {
   samplingInterval: number;
 }
 
+export interface Supervisor {
+  id: string;
+  name: string;
+  designation: string;
+  phone: string;
+  shift: string;
+  assignedPanel: string;
+}
+
 interface SensorState {
   sensors: SensorNode[];
   selectedSensorId: string | null;
   selectedPanelId: string;
   riskSummary: RiskSummary | null;
   alerts: Alert[];
+  supervisors: Supervisor[];
   lastUpdateTimestamp: Date;
   activeScenario: string;
   thresholds: ThresholdConfig;
@@ -26,6 +36,8 @@ interface SensorState {
   setActiveScenario: (scenario: string) => void;
   addSensor: (sensor: SensorNode) => void;
   removeSensor: (id: string) => void;
+  addSupervisor: (supervisor: Supervisor) => void;
+  removeSupervisor: (id: string) => void;
   updateThresholds: (thresholds: Partial<ThresholdConfig>) => void;
   acknowledgeAlertLocal: (id: string, operator?: string) => void;
   resolveAlertLocal: (id: string, operator?: string) => void;
@@ -41,6 +53,43 @@ const DEFAULT_THRESHOLDS: ThresholdConfig = {
   samplingInterval: 6
 };
 
+const DEFAULT_SUPERVISORS: Supervisor[] = [
+  {
+    id: 'SUP-01',
+    name: 'Er. R. K. Sharma',
+    designation: 'Mine Safety Officer (SECL)',
+    phone: '+91 98765 43210',
+    shift: 'Morning (06:00 - 14:00)',
+    assignedPanel: 'Panel B3 (Active Depillaring)'
+  },
+  {
+    id: 'SUP-02',
+    name: 'Er. Ananya Patel',
+    designation: 'Surface Geotechnical In-Charge',
+    phone: '+91 94255 12345',
+    shift: 'Evening (14:00 - 22:00)',
+    assignedPanel: 'Panel B2 & B3'
+  },
+  {
+    id: 'SUP-03',
+    name: 'Er. Vikramaditya Singh',
+    designation: 'Shift Overman (Extraction)',
+    phone: '+91 77592 88990',
+    shift: 'Night (22:00 - 06:00)',
+    assignedPanel: 'Panel B3 (Active Depillaring)'
+  }
+];
+
+function loadStoredSupervisors(): Supervisor[] {
+  try {
+    const raw = localStorage.getItem('mine_subsidence_supervisors');
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // fallback
+  }
+  return DEFAULT_SUPERVISORS;
+}
+
 function loadStoredThresholds(): ThresholdConfig {
   try {
     const raw = localStorage.getItem('mine_subsidence_thresholds');
@@ -53,10 +102,11 @@ function loadStoredThresholds(): ThresholdConfig {
 
 export const useSensorStore = create<SensorState>((set, get) => ({
   sensors: [],
-  selectedSensorId: 'N14',
+  selectedSensorId: null,
   selectedPanelId: 'PANEL-B3',
   riskSummary: null,
   alerts: [],
+  supervisors: loadStoredSupervisors(),
   lastUpdateTimestamp: new Date(),
   activeScenario: 'NORMAL',
   thresholds: loadStoredThresholds(),
@@ -79,6 +129,28 @@ export const useSensorStore = create<SensorState>((set, get) => ({
 
   removeSensor: (id: string) => {
     set({ sensors: get().sensors.filter(s => s.id !== id) });
+  },
+
+  addSupervisor: (newSup: Supervisor) => {
+    const current = get().supervisors;
+    const exists = current.some(s => s.id === newSup.id);
+    const updated = exists ? current.map(s => s.id === newSup.id ? newSup : s) : [...current, newSup];
+    try {
+      localStorage.setItem('mine_subsidence_supervisors', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+    set({ supervisors: updated });
+  },
+
+  removeSupervisor: (id: string) => {
+    const updated = get().supervisors.filter(s => s.id !== id);
+    try {
+      localStorage.setItem('mine_subsidence_supervisors', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+    set({ supervisors: updated });
   },
 
   updateThresholds: (config: Partial<ThresholdConfig>) => {

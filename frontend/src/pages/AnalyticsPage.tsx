@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { LineChart, Download, Filter, Calendar, Activity, BarChart2 } from 'lucide-react';
+import { LineChart, Download, Filter, Calendar, Activity, BarChart2, ArrowLeft } from 'lucide-react';
 import { SensorTrendChart } from '../components/charts/SensorTrendChart';
 import { useSensorStore } from '../store/sensorStore';
 import { api } from '../services/api';
 
-export const AnalyticsPage: React.FC = () => {
+interface AnalyticsPageProps {
+  onNavigatePage?: (page: any) => void;
+}
+
+export const AnalyticsPage: React.FC<AnalyticsPageProps> = ({ onNavigatePage }) => {
   const { sensors, selectedSensorId, setSelectedSensorId } = useSensorStore();
   const [rangeStr, setRangeStr] = useState<string>('24h');
   const [trendData, setTrendData] = useState<any[]>([]);
@@ -46,16 +50,25 @@ export const AnalyticsPage: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
     setExportSuccess(true);
     setTimeout(() => setExportSuccess(false), 2500);
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Filter and Export Bar */}
+      {/* Top Filter and Export Bar with Back Button */}
       <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1">
+            <button
+              onClick={() => onNavigatePage && onNavigatePage('dashboard')}
+              className="hover:text-blue-600 font-medium cursor-pointer"
+            >
+              Dashboard
+            </button>
+            <span>/</span>
+            <span className="font-semibold text-slate-900">Historical Analytics</span>
+          </div>
           <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <LineChart className="w-4 h-4 text-blue-600" />
             Geotechnical Time-Series Analytics & Parametric Trends
@@ -66,6 +79,16 @@ export const AnalyticsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
+          {onNavigatePage && (
+            <button
+              type="button"
+              onClick={() => onNavigatePage('dashboard')}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-xs transition cursor-pointer border border-slate-300 shadow-2xs"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Dashboard</span>
+            </button>
+          )}
           {/* Sensor Node Selector */}
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded px-2.5 py-1">
             <span className="text-slate-500 font-medium">Sensor:</span>

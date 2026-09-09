@@ -20,6 +20,7 @@ export const GisMap: React.FC<GisMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const meshLinksLayerRef = useRef<L.LayerGroup | null>(null);
   const dangerCircleRef = useRef<L.Circle | null>(null);
 
   // Initialize Map
@@ -93,10 +94,32 @@ export const GisMap: React.FC<GisMapProps> = ({
           fillOpacity: 0.12
         }).addTo(map).bindTooltip(`<b>${p.name}</b>`, { sticky: true });
       });
+
+      // AI Predicted Subsidence Basin & Limit Line (Angle of Draw = 21°, Depth H = 185m)
+      const subsidenceBasinCoords = [
+        [22.3598, 82.7512],
+        [22.3598, 82.7618],
+        [22.3682, 82.7618],
+        [22.3682, 82.7512],
+        [22.3598, 82.7512]
+      ] as L.LatLngExpression[];
+
+      L.polygon(subsidenceBasinCoords, {
+        color: '#DC2626',
+        weight: 1.5,
+        dashArray: '5, 8',
+        fillColor: '#EF4444',
+        fillOpacity: 0.06
+      }).addTo(map).bindTooltip(
+        "<b>AI PREDICTED SUBSIDENCE BASIN</b><br/>Angle of Draw: 21° | Influence Limit Line (CMPDI/DGMS)",
+        { sticky: true }
+      );
     }
 
     const markersLayer = L.layerGroup().addTo(map);
     markersLayerRef.current = markersLayer;
+    const linksLayer = L.layerGroup().addTo(map);
+    meshLinksLayerRef.current = linksLayer;
     mapInstanceRef.current = map;
 
     return () => {
@@ -105,11 +128,60 @@ export const GisMap: React.FC<GisMapProps> = ({
     };
   }, [showPanelOverlays]);
 
-  // Update sensor markers when sensors list updates
+  // Update sensor markers and inter-node mesh strain links
   useEffect(() => {
     if (!mapInstanceRef.current || !markersLayerRef.current) return;
     const markersLayer = markersLayerRef.current;
     markersLayer.clearLayers();
+    const linksLayer = meshLinksLayerRef.current;
+    if (linksLayer) linksLayer.clearLayers();
+
+    // Map for node lookup
+    const nodeMap = new Map(sensors.map(s => [s.id, s]));
+
+    // Draw Inter-Node Mesh Strain Links (Relative Distance Delta)
+    if (linksLayer) {
+      sensors.forEach(node => {
+        if (!node.mesh_parent_id) return;
+        const parent = nodeMap.get(node.mesh_parent_id);
+        if (!parent) return;
+
+        const nodeDisp = node.latest_reading?.displacement || 0;
+        const parentDisp = parent.latest_reading?.displacement || 0;
+        const relDistanceDelta = Math.abs(nodeDisp - parentDisp);
+
+        let linkColor = '#3B82F6'; // Normal blue
+        let dashPattern = undefined;
+        let linkWeight = 1.5;
+
+        if (relDistanceDelta > 12.0) {
+          linkColor = '#DC2626'; // Red critical tensile strain
+          linkWeight = 3;
+          dashPattern = '4, 4';
+        } else if (relDistanceDelta > 4.0) {
+          linkColor = '#F59E0B'; // Amber moderate stretch
+          linkWeight = 2;
+          dashPattern = '6, 4';
+        }
+
+        const polyline = L.polyline(
+          [[node.latitude, node.longitude], [parent.latitude, parent.longitude]],
+          {
+            color: linkColor,
+            weight: linkWeight,
+            opacity: 0.75,
+            dashArray: dashPattern
+          }
+        );
+
+        polyline.bindTooltip(
+          `<b>Mesh Strain Link: ${node.id} ↔ ${parent.id}</b><br/>Relative Distance Delta: <b>${relDistanceDelta.toFixed(1)} mm</b>`,
+          { sticky: true }
+        );
+
+        linksLayer.addLayer(polyline);
+      });
+    }
 
     let hasCritical = false;
     let hasWarning = false;
@@ -224,7 +296,7 @@ export const GisMap: React.FC<GisMapProps> = ({
       <div ref={mapContainerRef} className="w-full h-full" />
 
       {/* Map Legend (Top Right) */}
-      <div className="absolute top-3 right-3 z-[1000] bg-white/95 backdrop-blur-xs p-3 rounded-md shadow-md border border-slate-200 text-xs space-y-1.5 select-none">
+      <div className="absolute top-3 right-3 z-[450] bg-white/95 backdrop-blur-xs p-3 rounded-md shadow-md border border-slate-200 text-xs space-y-1.5 select-none">
         <span className="font-bold text-slate-800 uppercase tracking-wider block text-[10px] border-b border-slate-200 pb-1">
           Sensor & Risk Legend
         </span>
@@ -249,6 +321,14 @@ export const GisMap: React.FC<GisMapProps> = ({
             GW
           </span>
           <span className="text-slate-700 font-semibold">LoRa Gateway Hub</span>
+        </div>
+        <div className="flex items-center gap-2 pt-1 border-t border-slate-100 text-[11px]">
+          <span className="w-4 h-0.5 bg-blue-500 inline-block" />
+          <span className="text-slate-700">Inter-Node Mesh Link (ΔD)</span>
+        </div>
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="w-4 h-0.5 border-t border-dashed border-red-500 inline-block" />
+          <span className="text-slate-700">AI Subsidence Basin (21°)</span>
         </div>
       </div>
     </div>

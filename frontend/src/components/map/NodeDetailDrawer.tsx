@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Battery, Wifi, Activity, AlertTriangle, Clock, ArrowUpRight } from 'lucide-react';
+import { X, Battery, Wifi, Activity, AlertTriangle, Clock, ArrowUpRight, ArrowLeft } from 'lucide-react';
 import { SensorNode } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
 
@@ -26,23 +26,32 @@ export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({ node, onClos
     : '0.00';
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl border-l border-slate-200 z-50 flex flex-col justify-between animate-in slide-in-from-right duration-200">
-      {/* Drawer Header */}
-      <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold text-slate-900">{node.id}</h2>
-            <StatusBadge status={node.status} size="sm" />
+    <>
+      {/* Backdrop overlay for outside-click dismissal */}
+      <div
+        className="fixed inset-0 bg-slate-900/30 backdrop-blur-[2px] z-[9990] transition-opacity cursor-pointer"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl border-l border-slate-200 z-[9995] flex flex-col justify-between animate-in slide-in-from-right duration-200">
+        {/* Drawer Header with Back Button */}
+        <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50 sticky top-0 z-10">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-900">{node.id}</h2>
+              <StatusBadge status={node.status} size="sm" />
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">{node.name}</p>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">{node.name}</p>
+          <button
+            onClick={onClose}
+            aria-label="Back to dashboard / Close"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-slate-200 text-slate-700 hover:text-slate-950 font-semibold text-xs transition cursor-pointer border border-slate-300 bg-white shadow-2xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back</span>
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-md hover:bg-slate-200 text-slate-500 transition"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
 
       {/* Drawer Content */}
       <div className="p-5 space-y-5 overflow-y-auto flex-1 text-xs">
@@ -140,15 +149,23 @@ export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({ node, onClos
       </div>
 
       {/* Drawer Footer Action */}
-      <div className="p-4 border-t border-slate-200 bg-slate-50">
+      <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-2 sticky bottom-0 z-10">
         <button
           onClick={() => onViewAnalytics && onViewAnalytics(node.id)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold text-xs transition"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold text-xs transition cursor-pointer shadow-xs"
         >
           <span>View Historical Analytics for {node.id}</span>
           <ArrowUpRight className="w-3.5 h-3.5" />
         </button>
+        <button
+          onClick={onClose}
+          className="w-full flex items-center justify-center gap-1.5 px-4 py-1.5 bg-white hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-xs border border-slate-300 transition cursor-pointer shadow-2xs"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>← Back to Dashboard / Close</span>
+        </button>
       </div>
     </div>
-  );
+  </>
+);
 };

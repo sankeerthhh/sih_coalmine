@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { Settings, Sliders, ShieldAlert, Plus, Check, Save, Radio, Trash2 } from 'lucide-react';
-import { useSensorStore } from '../store/sensorStore';
+import { Settings, Sliders, ShieldAlert, Plus, Check, Save, Radio, Trash2, ArrowLeft, UserCheck, Phone, Clock, MapPin } from 'lucide-react';
+import { useSensorStore, Supervisor } from '../store/sensorStore';
 import { SensorNode } from '../types';
 
-export const SettingsPage: React.FC = () => {
-  const { sensors, thresholds, updateThresholds, addSensor, removeSensor } = useSensorStore();
+interface SettingsPageProps {
+  onNavigatePage?: (page: any) => void;
+}
+
+export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) => {
+  const { sensors, thresholds, updateThresholds, addSensor, removeSensor, supervisors, addSupervisor, removeSupervisor } = useSensorStore();
 
   const [warningThreshold, setWarningThreshold] = useState(thresholds.warningThreshold);
   const [highThreshold, setHighThreshold] = useState(thresholds.highThreshold);
@@ -18,6 +22,14 @@ export const SettingsPage: React.FC = () => {
   const [newNodeLat, setNewNodeLat] = useState('22.3650');
   const [newNodeLon, setNewNodeLon] = useState('82.7570');
   const [nodeAddSuccess, setNodeAddSuccess] = useState(false);
+
+  // Supervisor Form State
+  const [supName, setSupName] = useState('');
+  const [supRole, setSupRole] = useState('Shift Safety Overman');
+  const [supPhone, setSupPhone] = useState('+91 ');
+  const [supShift, setSupShift] = useState('Morning (06:00 - 14:00)');
+  const [supPanel, setSupPanel] = useState('PANEL-B3');
+  const [supAddSuccess, setSupAddSuccess] = useState(false);
 
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,17 +84,50 @@ export const SettingsPage: React.FC = () => {
     }, 2500);
   };
 
+  const handleAddSupervisor = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supName.trim()) return;
+    const newSup: Supervisor = {
+      id: `SUP-${Date.now().toString().slice(-4)}`,
+      name: supName.trim(),
+      designation: supRole,
+      phone: supPhone.trim() || '+91 98765 00000',
+      shift: supShift,
+      assignedPanel: supPanel
+    };
+    addSupervisor(newSup);
+    setSupAddSuccess(true);
+    setTimeout(() => {
+      setSupAddSuccess(false);
+      setSupName('');
+      setSupPhone('+91 ');
+    }, 2500);
+  };
+
   return (
     <div className="space-y-6 max-w-5xl">
-      {/* Top Header */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
-        <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <Settings className="w-4 h-4 text-blue-600" />
-          Platform Administration & Geotechnical Threshold Settings
-        </h2>
-        <p className="text-xs text-slate-500">
-          Configure safety classification thresholds, sensor sampling intervals, and node telemetry provisioning
-        </p>
+      {/* Top Header with Back to Dashboard Button */}
+      <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Settings className="w-4 h-4 text-blue-600" />
+            Platform Administration & Safety Roster Settings
+          </h2>
+          <p className="text-xs text-slate-500">
+            Configure safety thresholds, sensor node provisioning, and mine supervisor duty rosters
+          </p>
+        </div>
+
+        {onNavigatePage && (
+          <button
+            type="button"
+            onClick={() => onNavigatePage('dashboard')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-xs transition cursor-pointer border border-slate-300"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -329,6 +374,169 @@ export const SettingsPage: React.FC = () => {
               )}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* 4. Mine Safety Supervisors & Shift In-Charge Directory */}
+      <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-xs space-y-5">
+        <div className="border-b border-slate-100 pb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <UserCheck className="w-4 h-4 text-blue-600" />
+              Mine Safety Supervisors & Shift In-Charge Roster
+            </h3>
+            <p className="text-xs text-slate-500">
+              Designated statutory safety officers and shift in-charges receiving automated early warning SMS broadcasts
+            </p>
+          </div>
+        </div>
+
+        {/* Form to Enroll New Supervisor */}
+        <form onSubmit={handleAddSupervisor} className="bg-slate-50/70 p-4 rounded-lg border border-slate-200 space-y-4 text-xs">
+          <div className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
+            <Plus className="w-3.5 h-3.5 text-blue-600" />
+            <span>Enroll New Mine Supervisor / Safety Officer</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            <div>
+              <label className="block text-slate-500 mb-1 text-[11px]">Full Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Er. R. K. Sharma"
+                value={supName}
+                onChange={(e) => setSupName(e.target.value)}
+                required
+                className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-500 mb-1 text-[11px]">Designation / Role</label>
+              <select
+                value={supRole}
+                onChange={(e) => setSupRole(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="Mine Safety Officer (SECL)">Mine Safety Officer (SECL)</option>
+                <option value="Surface Geotechnical In-Charge">Surface Geotechnical In-Charge</option>
+                <option value="Shift Safety Overman">Shift Safety Overman</option>
+                <option value="First Class Mine Manager">First Class Mine Manager</option>
+                <option value="Wireless Mesh Field Engineer">Wireless Mesh Field Engineer</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-500 mb-1 text-[11px]">Contact (SMS Alert Target)</label>
+              <input
+                type="tel"
+                placeholder="+91 98765 43210"
+                value={supPhone}
+                onChange={(e) => setSupPhone(e.target.value)}
+                required
+                className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-500 mb-1 text-[11px]">Assigned Shift</label>
+              <select
+                value={supShift}
+                onChange={(e) => setSupShift(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="Morning (06:00 - 14:00)">Morning (06:00 - 14:00)</option>
+                <option value="Evening (14:00 - 22:00)">Evening (14:00 - 22:00)</option>
+                <option value="Night (22:00 - 06:00)">Night (22:00 - 06:00)</option>
+                <option value="General Shift (09:00 - 17:00)">General Shift (09:00 - 17:00)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-500 mb-1 text-[11px]">Monitored Panel</label>
+              <select
+                value={supPanel}
+                onChange={(e) => setSupPanel(e.target.value)}
+                className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="PANEL-B3">Panel B3 (Active Depillaring)</option>
+                <option value="PANEL-B2">Panel B2 (Development Section)</option>
+                <option value="PANEL-B1">Panel B1 (Continuous Miner)</option>
+                <option value="PANEL-A2">Panel A2 (Post-Depillared)</option>
+                <option value="PANEL-A1">Panel A1 (Sealed Gaf)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <button
+              type="submit"
+              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold text-xs transition cursor-pointer shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Enroll Supervisor into Roster</span>
+            </button>
+            {supAddSuccess && (
+              <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                <Check className="w-4 h-4" /> Supervisor added and registered for early warning SMS!
+              </span>
+            )}
+          </div>
+        </form>
+
+        {/* Current Active Supervisors Table */}
+        <div className="overflow-x-auto border border-slate-200 rounded-lg">
+          <table className="w-full border-collapse text-xs text-left">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                <th className="p-3">Supervisor Name</th>
+                <th className="p-3">Designation / Statutory Role</th>
+                <th className="p-3">Contact (SMS Target)</th>
+                <th className="p-3">Assigned Shift</th>
+                <th className="p-3">Mining Sector</th>
+                <th className="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-700">
+              {supervisors.map((sup) => (
+                <tr key={sup.id} className="hover:bg-slate-50/70 transition">
+                  <td className="p-3 font-bold text-slate-900 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    {sup.name}
+                  </td>
+                  <td className="p-3 font-medium text-slate-800">{sup.designation}</td>
+                  <td className="p-3 font-mono text-slate-600 flex items-center gap-1.5">
+                    <Phone className="w-3 h-3 text-slate-400" />
+                    {sup.phone}
+                  </td>
+                  <td className="p-3">
+                    <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-[11px] font-medium text-slate-700">
+                      <Clock className="w-3 h-3 text-slate-500" />
+                      {sup.shift}
+                    </span>
+                  </td>
+                  <td className="p-3 font-semibold text-blue-700">{sup.assignedPanel}</td>
+                  <td className="p-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => removeSupervisor(sup.id)}
+                      title={`Remove ${sup.name}`}
+                      className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {supervisors.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-6 text-center text-slate-400">
+                    No supervisors currently enrolled. Use the form above to add mine safety officers.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

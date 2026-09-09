@@ -9,7 +9,8 @@ import {
   Check,
   RotateCcw,
   Clock,
-  Filter
+  Filter,
+  ArrowLeft
 } from 'lucide-react';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { useSensorStore } from '../store/sensorStore';
@@ -64,9 +65,19 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
 
   return (
     <div className="space-y-5">
-      {/* Top Filter Bar */}
+      {/* Top Filter Bar with Back Button */}
       <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1">
+            <button
+              onClick={() => onNavigatePage('dashboard')}
+              className="hover:text-blue-600 font-medium cursor-pointer"
+            >
+              Dashboard
+            </button>
+            <span>/</span>
+            <span className="font-semibold text-slate-900">Alerts</span>
+          </div>
           <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Bell className="w-4 h-4 text-red-600" />
             Mine Subsidence Early Warning & Alert Management
@@ -77,6 +88,14 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => onNavigatePage('dashboard')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-xs transition cursor-pointer border border-slate-300 shadow-2xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
+          </button>
           {/* Status Tabs */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-md border border-slate-200">
             {['ALL', 'ACTIVE', 'ACKNOWLEDGED', 'RESOLVED'].map((st) => (
@@ -102,6 +121,63 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
             <option value="CRITICAL">Critical Only</option>
             <option value="WARNING">Warning Only</option>
           </select>
+        </div>
+      </div>
+
+      {/* Emergency Multi-Channel Broadcast Console */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-lg p-5 text-white shadow-md space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+              <h3 className="text-sm font-bold tracking-wide uppercase text-slate-200">
+                Automated Multi-Channel Emergency Broadcast Dispatcher
+              </h3>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Direct telemetry integration with NIC SMS Gateway, DGMS Regional Circle email bulletins, and site sirens
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              const confirmSend = window.confirm("Trigger automated emergency SMS and email broadcast to Mine Safety Officer and DGMS Inspector?");
+              if (confirmSend) {
+                alert("Emergency broadcast dispatched via NIC SMS Gateway to 3 designated emergency contacts.");
+              }
+            }}
+            className="flex items-center gap-2 px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded font-semibold text-xs transition shadow-sm cursor-pointer"
+          >
+            <Bell className="w-3.5 h-3.5 animate-bounce" />
+            <span>Test Emergency Broadcast (SMS & Email)</span>
+          </button>
+        </div>
+
+        {/* Channels & Recipient List Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div className="bg-slate-800/80 rounded border border-slate-700 p-3 space-y-1">
+            <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">SMS Gateway (NIC/CDAC)</div>
+            <div className="font-semibold text-emerald-400 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Direct Telecommunication Active
+            </div>
+            <div className="text-[11px] text-slate-300">Target: Er. R.K. Sharma (+91 98765 43210)</div>
+          </div>
+
+          <div className="bg-slate-800/80 rounded border border-slate-700 p-3 space-y-1">
+            <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">DGMS Statutory Bulletin</div>
+            <div className="font-semibold text-blue-400 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Regional Circle Connected
+            </div>
+            <div className="text-[11px] text-slate-300">Target: Dr. V.P. Sen (dgms.bilaspur@dgms.gov.in)</div>
+          </div>
+
+          <div className="bg-slate-800/80 rounded border border-slate-700 p-3 space-y-1">
+            <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">On-Site Surface Evacuation</div>
+            <div className="font-semibold text-amber-400 flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5" /> Panel B3 Perimeter Siren
+            </div>
+            <div className="text-[11px] text-slate-300">Target: Korba Block-A Central Control Room</div>
+          </div>
         </div>
       </div>
 

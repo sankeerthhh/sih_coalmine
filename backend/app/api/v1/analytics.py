@@ -71,3 +71,60 @@ def get_analytics_trends(
         "telemetry_trends": data_points,
         "risk_trends": risk_points
     }
+
+
+@router.get("/forecast/{panel_id}")
+def get_subsidence_forecast(
+    panel_id: str,
+    sensor_id: Optional[str] = Query(None),
+    hours: int = Query(48, ge=12, le=168),
+    db: Session = Depends(get_db)
+):
+    from app.ai.subsidence_predictor import subsidence_predictor
+    
+    # If sensor not specified, find the node in this panel with highest displacement
+    target_sensor = sensor_id
+    if not target_sensor:
+        nodes = db.query(SensorNode).filter(SensorNode.panel_id == panel_id).all()
+        node_ids = [n.id for n in nodes]
+        if node_ids:
+            latest_reading = (
+                db.query(SensorReading)
+                .filter(SensorReading.node_id.in_(node_ids))
+                .order_by(SensorReading.displacement.desc())
+                .first()
+            )
+            if latest_reading:
+                target_sensor = latest_reading.node_id
+            else:
+                target_sensor = node_ids[0]
+        else:
+            target_sensor = "N14"
+
+    # Fetch last 24h readings for this sensor
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    readings = (
+        db.query(SensorReading)
+        .filter(SensorReading.node_id == target_sensor, SensorReading.timestamp >= since)
+        .order_by(SensorReading.timestamp.asc())
+        .all()
+    )
+
+    data_points = []
+    for r in readings:
+        resultant_tilt = (r.tilt_x**2 + r.tilt_y**2)**0.5
+        data_points.append({
+            "timestamp": r.timestamp.isoformat(),
+            "displacement": r.displacement,
+            "resultant_tilt": resultant_tilt
+        })
+
+    forecast_result = subsidence_predictor.predict_progression(
+        history_readings=data_points,
+        forecast_hours=hours
+    )
+    forecast_result["panel_id"] = panel_id
+    forecast_result["monitored_epicenter_node"] = target_sensor
+
+    return forecast_result
+

@@ -55,3 +55,28 @@ def resolve_alert(
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
     return alert
+
+
+@router.post("/broadcast-test")
+def trigger_test_broadcast(
+    panel_id: str = Query("PANEL-B3"),
+    db: Session = Depends(get_db)
+):
+    from app.services.notification_service import notification_service
+    record = notification_service.dispatch_critical_warning(
+        panel_id=panel_id,
+        title="EMERGENCY SUBSIDENCE DRILL: Accelerated Displacement at B3",
+        measured_displacement=14.8,
+        measured_tilt=2.3,
+        crack_detected=True,
+        hours_to_breach=16.4,
+        recommended_action="Halt extraction. Evacuate surface perimeter within 150m. Deploy geodetic verification."
+    )
+    return record
+
+
+@router.get("/broadcast-logs")
+def get_broadcast_logs():
+    from app.services.notification_service import notification_service
+    return notification_service.get_dispatch_logs()
+

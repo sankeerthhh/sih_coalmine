@@ -39,13 +39,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigatePage }) 
     api.getSensorReadings('N14', 24).then(setTrendData).catch(console.error);
   }, []);
 
-  // Update selected drawer node when sensors list updates
+  // Only update drawer telemetry if the drawer is currently open
   useEffect(() => {
-    if (selectedSensorId) {
-      const found = sensors.find(s => s.id === selectedSensorId);
+    if (drawerNode) {
+      const found = sensors.find(s => s.id === drawerNode.id);
       if (found) setDrawerNode(found);
     }
-  }, [sensors, selectedSensorId]);
+  }, [sensors]);
 
   const activeNodes = sensors.filter(s => s.status !== 'OFFLINE').length || 24;
   const offlineNodes = sensors.filter(s => s.status === 'OFFLINE').length;

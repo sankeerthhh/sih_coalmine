@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, Filter, Eye, ShieldAlert, Radio } from 'lucide-react';
+import { Layers, Filter, Eye, ShieldAlert, Radio, ArrowLeft } from 'lucide-react';
 import { GisMap } from '../components/map/GisMap';
 import { NodeDetailDrawer } from '../components/map/NodeDetailDrawer';
 import { useSensorStore } from '../store/sensorStore';
@@ -27,9 +27,19 @@ export const GisMapPage: React.FC<GisMapPageProps> = ({ onNavigatePage }) => {
 
   return (
     <div className="space-y-4">
-      {/* Header Controls & Filter Bar */}
+      {/* Header Controls & Filter Bar with Back Button */}
       <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1">
+            <button
+              onClick={() => onNavigatePage('dashboard')}
+              className="hover:text-blue-600 font-medium cursor-pointer"
+            >
+              Dashboard
+            </button>
+            <span>/</span>
+            <span className="font-semibold text-slate-900">Live GIS Map</span>
+          </div>
           <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
             <Layers className="w-4 h-4 text-blue-600" />
             Live GIS Strata Deformation & Risk Mapping
@@ -39,8 +49,16 @@ export const GisMapPage: React.FC<GisMapPageProps> = ({ onNavigatePage }) => {
           </p>
         </div>
 
-        {/* Filters */}
+        {/* Right: Filters and Back Button */}
         <div className="flex flex-wrap items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => onNavigatePage('dashboard')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-xs transition cursor-pointer border border-slate-300 shadow-2xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
+          </button>
           {/* Panel Selector */}
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-300 rounded px-2.5 py-1">
             <span className="text-slate-500 font-medium">Panel:</span>
@@ -91,7 +109,10 @@ export const GisMapPage: React.FC<GisMapPageProps> = ({ onNavigatePage }) => {
       {/* Node Inspection Drawer */}
       <NodeDetailDrawer
         node={drawerNode}
-        onClose={() => setDrawerNode(null)}
+        onClose={() => {
+          setDrawerNode(null);
+          setSelectedSensorId(null);
+        }}
         onViewAnalytics={(nodeId) => {
           setSelectedSensorId(nodeId);
           setDrawerNode(null);

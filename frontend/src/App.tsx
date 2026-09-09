@@ -71,11 +71,11 @@ export const App: React.FC = () => {
           {currentPage === 'dashboard' && <DashboardPage onNavigatePage={setCurrentPage} />}
           {currentPage === 'gis-map' && <GisMapPage onNavigatePage={setCurrentPage} />}
           {currentPage === 'sensors' && <SensorNetworkPage onNavigatePage={setCurrentPage} />}
-          {currentPage === 'ai-risk' && <AiRiskPage />}
+          {currentPage === 'ai-risk' && <AiRiskPage onNavigatePage={setCurrentPage} />}
           {currentPage === 'alerts' && <AlertsPage onNavigatePage={setCurrentPage} />}
-          {currentPage === 'analytics' && <AnalyticsPage />}
-          {currentPage === 'system-health' && <SystemHealthPage />}
-          {currentPage === 'settings' && <SettingsPage />}
+          {currentPage === 'analytics' && <AnalyticsPage onNavigatePage={setCurrentPage} />}
+          {currentPage === 'system-health' && <SystemHealthPage onNavigatePage={setCurrentPage} />}
+          {currentPage === 'settings' && <SettingsPage onNavigatePage={setCurrentPage} />}
         </main>
       </div>
     </div>

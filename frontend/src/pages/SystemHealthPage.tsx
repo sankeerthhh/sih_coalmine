@@ -11,7 +11,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
-  HardDrive
+  HardDrive,
+  ArrowLeft
 } from 'lucide-react';
 import { StatCard } from '../components/common/StatCard';
 import { StatusBadge } from '../components/common/StatusBadge';
@@ -19,7 +20,11 @@ import { useSensorStore } from '../store/sensorStore';
 import { api } from '../services/api';
 import { SystemHealth } from '../types';
 
-export const SystemHealthPage: React.FC = () => {
+interface SystemHealthPageProps {
+  onNavigatePage?: (page: any) => void;
+}
+
+export const SystemHealthPage: React.FC<SystemHealthPageProps> = ({ onNavigatePage }) => {
   const { sensors } = useSensorStore();
   const [health, setHealth] = useState<SystemHealth | null>(null);
 
@@ -39,15 +44,38 @@ export const SystemHealthPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
-      <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs">
-        <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-          <Activity className="w-4 h-4 text-emerald-600" />
-          Subsystem Diagnostics & Network Telemetry Health
-        </h2>
-        <p className="text-xs text-slate-500">
-          Continuous monitoring of field gateways, LoRa repeater mesh, SQLite/PostgreSQL storage, and AI inference pipeline
-        </p>
+      {/* Top Header with Breadcrumb and Back Button */}
+      <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1">
+            <button
+              onClick={() => onNavigatePage && onNavigatePage('dashboard')}
+              className="hover:text-blue-600 font-medium cursor-pointer"
+            >
+              Dashboard
+            </button>
+            <span>/</span>
+            <span className="font-semibold text-slate-900">System Health</span>
+          </div>
+          <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Activity className="w-4 h-4 text-emerald-600" />
+            Subsystem Diagnostics & Network Telemetry Health
+          </h2>
+          <p className="text-xs text-slate-500">
+            Continuous monitoring of field gateways, LoRa repeater mesh, SQLite/PostgreSQL storage, and AI inference pipeline
+          </p>
+        </div>
+
+        {onNavigatePage && (
+          <button
+            type="button"
+            onClick={() => onNavigatePage('dashboard')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-xs transition cursor-pointer border border-slate-300 shadow-2xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
+          </button>
+        )}
       </div>
 
       {/* Primary Subsystems Status Grid */}

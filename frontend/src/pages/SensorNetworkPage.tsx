@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Network, Search, Filter, Battery, Wifi, Activity, ArrowUpDown } from 'lucide-react';
+import { Network, Search, Filter, Battery, Wifi, Activity, ArrowUpDown, ArrowLeft } from 'lucide-react';
 import { MeshVisualizer } from '../components/mesh/MeshVisualizer';
 import { NodeDetailDrawer } from '../components/map/NodeDetailDrawer';
 import { StatusBadge } from '../components/common/StatusBadge';
@@ -36,6 +36,38 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
 
   return (
     <div className="space-y-6">
+      {/* Top Header Bar with Breadcrumb and Back Button */}
+      <div className="bg-white rounded-lg border border-slate-200 p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1">
+            <button
+              onClick={() => onNavigatePage('dashboard')}
+              className="hover:text-blue-600 font-medium cursor-pointer"
+            >
+              Dashboard
+            </button>
+            <span>/</span>
+            <span className="font-semibold text-slate-900">Sensor Network</span>
+          </div>
+          <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <Network className="w-4 h-4 text-blue-600" />
+            Wireless Surface Mesh Network & Sensor Telemetry
+          </h2>
+          <p className="text-xs text-slate-500">
+            Multi-hop LoRa DAG topology, link budgets, and real-time geotechnical telemetry
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigatePage('dashboard')}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-xs transition cursor-pointer border border-slate-300 shadow-2xs"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to Dashboard</span>
+        </button>
+      </div>
+
       {/* 1. Wireless Surface Mesh Network Topology Visualizer */}
       <MeshVisualizer
         meshData={meshData}
@@ -45,7 +77,52 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
         }}
       />
 
-      {/* 2. Comprehensive Sensor Node Telemetry Table */}
+      {/* 2. Live LoRa 865MHz Surface Mesh Radio Monitor */}
+      <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 text-white shadow-xs space-y-3 font-mono text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span className="font-bold text-slate-200 uppercase tracking-wide">
+              Live LoRa 865MHz Surface Mesh RF Gateway Monitor (IN865 Band)
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-slate-400">
+            <span>Freq: <strong className="text-white">865.50 MHz</strong></span>
+            <span>BW: <strong className="text-white">125 kHz</strong></span>
+            <span>SF: <strong className="text-white">SF7</strong></span>
+            <span>CR: <strong className="text-white">4/5</strong></span>
+            <span className="text-emerald-400 font-bold bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800">
+              Gateway N01 Active
+            </span>
+          </div>
+        </div>
+
+        {/* Live Packet Log Stream */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-[11px]">
+          <div className="bg-slate-800/80 p-2.5 rounded border border-slate-700">
+            <div className="text-slate-400 text-[10px]">LATEST RF HOP PATH</div>
+            <div className="text-blue-400 font-bold mt-1">N14 → N13 → N12 → N09 → N01</div>
+            <div className="text-slate-500 text-[10px]">Mesh Transit Delay: 42ms</div>
+          </div>
+          <div className="bg-slate-800/80 p-2.5 rounded border border-slate-700">
+            <div className="text-slate-400 text-[10px]">LINK BUDGET & RSSI</div>
+            <div className="text-emerald-400 font-bold mt-1">-74 dBm (SNR: +8.5 dB)</div>
+            <div className="text-slate-500 text-[10px]">0 Packet Dropped (CRC OK)</div>
+          </div>
+          <div className="bg-slate-800/80 p-2.5 rounded border border-slate-700">
+            <div className="text-slate-400 text-[10px]">HARDWARE PLATFORM</div>
+            <div className="text-slate-200 font-bold mt-1">ESP32 + SX1262 LoRa</div>
+            <div className="text-slate-500 text-[10px]">Power: 3.7V Solar Harvested</div>
+          </div>
+          <div className="bg-slate-800/80 p-2.5 rounded border border-slate-700">
+            <div className="text-slate-400 text-[10px]">INGESTION DAEMON</div>
+            <div className="text-amber-400 font-bold mt-1">gateway_bridge.py</div>
+            <div className="text-slate-500 text-[10px]">Mode: Dual (Serial / Virtual)</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Comprehensive Sensor Node Telemetry Table */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
         {/* Table Top Controls */}
         <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
@@ -194,7 +271,10 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
       {/* Node Detail Drawer */}
       <NodeDetailDrawer
         node={drawerNode}
-        onClose={() => setDrawerNode(null)}
+        onClose={() => {
+          setDrawerNode(null);
+          setSelectedSensorId(null);
+        }}
         onViewAnalytics={(nodeId) => {
           setSelectedSensorId(nodeId);
           setDrawerNode(null);
