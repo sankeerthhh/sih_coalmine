@@ -18,6 +18,13 @@
             }
         },
         {
+            "source": "/ws(/.*)?",
+            "destination": {
+                "type": "service",
+                "service": "backend"
+            }
+        },
+        {
             "source": "/(.*)",
             "destination": {
                 "type": "service",

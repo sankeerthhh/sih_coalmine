@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { api } from '../services/api';
 
 export interface WebSocketEvent {
   type: string;
@@ -11,19 +12,52 @@ export function useWebSocket(onEvent?: (event: WebSocketEvent) => void) {
   const [isOffline, setIsOffline] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<any>(null);
+  const retryCountRef = useRef<number>(0);
+  const pollingIntervalRef = useRef<any>(null);
+
+  const startHttpPolling = useCallback(() => {
+    if (pollingIntervalRef.current) return;
+    setIsConnected(true);
+    setIsOffline(false);
+
+    const poll = async () => {
+      try {
+        const token = localStorage.getItem('mine_subsidence_token');
+        if (!token) return; // Only poll when logged in
+        
+        const sensors = await api.getSensors();
+        if (sensors && sensors.length > 0 && onEvent) {
+          onEvent({
+            type: 'SENSOR_TELEMETRY_UPDATE',
+            data: sensors
+          });
+          setLastUpdate(new Date());
+        }
+      } catch {
+        // quiet fallback
+      }
+    };
+
+    pollingIntervalRef.current = setInterval(poll, 6000);
+  }, [onEvent]);
 
   const connect = useCallback(() => {
+    // Only attempt WebSocket if we haven't failed repeatedly (e.g. serverless Vercel)
+    if (retryCountRef.current >= 2) {
+      startHttpPolling();
+      return;
+    }
+
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host;
-      // In development Vite proxies /ws to 8000
       const wsUrl = `${protocol}//${host}/ws/telemetry`;
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        retryCountRef.current = 0;
         setIsConnected(true);
         setIsOffline(false);
         setLastUpdate(new Date());
@@ -42,31 +76,28 @@ export function useWebSocket(onEvent?: (event: WebSocketEvent) => void) {
       };
 
       ws.onclose = () => {
-        setIsConnected(false);
-        setIsOffline(true);
-        // Attempt reconnection after 3 seconds
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
-        }, 3000);
+        retryCountRef.current += 1;
+        if (retryCountRef.current >= 2) {
+          // Gracefully fallback to HTTP polling (serverless environment like Vercel)
+          startHttpPolling();
+        } else {
+          setTimeout(connect, 4000);
+        }
       };
 
       ws.onerror = () => {
-        setIsConnected(false);
-        setIsOffline(true);
+        ws.close();
       };
-    } catch (err) {
-      setIsConnected(false);
-      setIsOffline(true);
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connect();
-      }, 3000);
+    } catch {
+      retryCountRef.current += 1;
+      startHttpPolling();
     }
-  }, [onEvent]);
+  }, [onEvent, startHttpPolling]);
 
   useEffect(() => {
     connect();
     return () => {
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
       if (wsRef.current) wsRef.current.close();
     };
   }, [connect]);
