@@ -106,8 +106,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register all REST API routes under /api/v1
+# Register all REST API routes under /api/v1 AND /v1 (handles rewrites whether /api is preserved or stripped)
 app.include_router(api_router, prefix=settings.API_V1_STR)
+if settings.API_V1_STR != "/v1":
+    app.include_router(api_router, prefix="/v1")
 
 
 # Real-time WebSocket telemetry stream endpoint
