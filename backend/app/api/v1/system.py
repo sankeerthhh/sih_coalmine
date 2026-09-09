@@ -50,3 +50,35 @@ def get_system_health(db: Session = Depends(get_db)):
         cpu_usage_pct=cpu_usage,
         memory_usage_mb=memory_mb
     )
+
+
+@router.get("/debug")
+def get_system_debug(db: Session = Depends(get_db)):
+    import os
+    from app.core.config import settings
+    from app.models.user import User
+
+    db_masked = settings.DATABASE_URL
+    if "@" in db_masked:
+        parts = db_masked.split("@")
+        db_masked = f"{parts[0].split('://')[0]}://***@{parts[1]}"
+
+    try:
+        users = db.query(User).all()
+        user_list = [{"id": u.id, "email": u.email, "role": u.role} for u in users]
+        db_status = "CONNECTED"
+        db_error = None
+    except Exception as e:
+        user_list = []
+        db_status = "ERROR"
+        db_error = str(e)
+
+    return {
+        "status": "ok",
+        "database_status": db_status,
+        "database_error": db_error,
+        "database_target": db_masked,
+        "is_postgres": "postgres" in settings.DATABASE_URL,
+        "is_vercel": bool(os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV")),
+        "users": user_list,
+    }

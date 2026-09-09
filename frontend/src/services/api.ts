@@ -23,8 +23,25 @@ function getAuthHeaders(): HeadersInit {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const errData = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errData.detail || `Request failed with status ${res.status}`);
+    let message = '';
+    try {
+      const json = await res.clone().json();
+      message = json.detail || json.message || JSON.stringify(json);
+    } catch {
+      try {
+        const text = await res.clone().text();
+        // Extract title or body text if it's an HTML error page
+        if (text.includes('<title>')) {
+          const match = text.match(/<title>([^<]+)<\/title>/i);
+          message = match ? match[1] : text.slice(0, 150);
+        } else {
+          message = text.slice(0, 200);
+        }
+      } catch {
+        message = res.statusText;
+      }
+    }
+    throw new Error(message || `Request failed with status ${res.status}`);
   }
   return res.json();
 }
