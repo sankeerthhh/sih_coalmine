@@ -12,8 +12,13 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     
-    # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./mine_subsidence.db")
+    # Database (Supabase Cloud PostgreSQL)
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL", 
+        "postgresql://postgres.yagfbuxhxshyqulizmku:Orvexa%4020267@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
+    )
+    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "https://yagfbuxhxshyqulizmku.supabase.co")
+    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlhZ2ZidXhoeHNoeXF1bGl6bWt1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODk2MDI5NCwiZXhwIjoyMTA0NTM2Mjk0fQ.tfdSqKW9Fdic1ZLCqLkxCOxMV-ZGdkKEeTp0ZwI4Jno")
     
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [
