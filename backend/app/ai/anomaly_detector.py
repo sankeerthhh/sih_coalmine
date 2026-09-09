@@ -8,25 +8,30 @@ class AnomalyDetector:
     Flags unusual multi-sensor combinations (e.g. rising tilt with displacement spike).
     """
     def __init__(self):
-        # Baseline normal surface strata parameters (tilt ~0-0.5 deg, disp ~0-2mm, vib ~0.2-1.5 mm/s)
-        np.random.seed(42)
-        normal_samples = np.column_stack([
-            np.random.normal(loc=0.3, scale=0.15, size=500), # resultant_tilt
-            np.random.normal(loc=0.01, scale=0.01, size=500),# tilt_rate
-            np.random.normal(loc=1.5, scale=0.5, size=500),  # displacement
-            np.random.normal(loc=0.02, scale=0.02, size=500),# disp_velocity
-            np.random.normal(loc=0.8, scale=0.3, size=500),  # vibration
-            np.random.normal(loc=0.1, scale=0.08, size=500)  # spatial_deviation
-        ])
-        
-        self.model = IsolationForest(
-            n_estimators=100,
-            contamination=0.05,
-            random_state=42
-        )
-        self.model.fit(normal_samples)
+        self.model = None
+
+    def _ensure_model(self):
+        if self.model is None:
+            # Baseline normal surface strata parameters (tilt ~0-0.5 deg, disp ~0-2mm, vib ~0.2-1.5 mm/s)
+            np.random.seed(42)
+            normal_samples = np.column_stack([
+                np.random.normal(loc=0.3, scale=0.15, size=500), # resultant_tilt
+                np.random.normal(loc=0.01, scale=0.01, size=500),# tilt_rate
+                np.random.normal(loc=1.5, scale=0.5, size=500),  # displacement
+                np.random.normal(loc=0.02, scale=0.02, size=500),# disp_velocity
+                np.random.normal(loc=0.8, scale=0.3, size=500),  # vibration
+                np.random.normal(loc=0.1, scale=0.08, size=500)  # spatial_deviation
+            ])
+            
+            self.model = IsolationForest(
+                n_estimators=100,
+                contamination=0.05,
+                random_state=42
+            )
+            self.model.fit(normal_samples)
 
     def detect_anomaly(self, features: Dict[str, float]) -> Dict[str, Any]:
+        self._ensure_model()
         vector = np.array([[
             features.get("resultant_tilt", 0.0),
             features.get("tilt_rate", 0.0),
