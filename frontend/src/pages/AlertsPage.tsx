@@ -10,10 +10,24 @@ import {
   RotateCcw,
   Clock,
   Filter,
-  ArrowLeft
+  ArrowLeft,
+  Pencil,
+  X,
+  Radio,
+  Send,
+  Phone,
+  Mail,
+  Volume2,
+  FileText,
+  Loader2,
+  History,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Smartphone
 } from 'lucide-react';
 import { StatusBadge } from '../components/common/StatusBadge';
-import { useSensorStore } from '../store/sensorStore';
+import { useSensorStore, BroadcastConfig, BroadcastLogItem } from '../store/sensorStore';
 import { api } from '../services/api';
 import { Alert } from '../types';
 
@@ -22,10 +36,36 @@ interface AlertsPageProps {
 }
 
 export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
-  const { alerts, setAlerts, setSelectedSensorId, acknowledgeAlertLocal, resolveAlertLocal } = useSensorStore();
+  const { 
+    alerts, 
+    setAlerts, 
+    setSelectedSensorId, 
+    acknowledgeAlertLocal, 
+    resolveAlertLocal,
+    broadcastConfig,
+    updateBroadcastConfig,
+    broadcastLogs,
+    recordBroadcastLog,
+    supervisors,
+    selectedPanelId
+  } = useSensorStore();
+
   const [severityFilter, setSeverityFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+
+  // Test Broadcast Dispatch Modal State
+  const [isDispatchModalOpen, setIsDispatchModalOpen] = useState(false);
+  const [dispatchStep, setDispatchStep] = useState(0); // 0: idle, 1: telemetry, 2: sms, 3: dgms, 4: siren, 5: completed
+  const [currentDispatchResult, setCurrentDispatchResult] = useState<BroadcastLogItem | null>(null);
+
+  // Edit Dispatch Targets Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState<BroadcastConfig>(broadcastConfig);
+  const [editSavedSuccess, setEditSavedSuccess] = useState(false);
+
+  // History Accordion State
+  const [showLogs, setShowLogs] = useState(false);
 
   useEffect(() => {
     api.getAlerts().then(setAlerts).catch(console.error);
@@ -54,6 +94,67 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
       console.warn("Resolve fallback active:", err);
     } finally {
       setLoadingAction(null);
+    }
+  };
+
+  const handleTriggerTestBroadcast = async () => {
+    setIsDispatchModalOpen(true);
+    setDispatchStep(1); // capturing telemetry
+    setCurrentDispatchResult(null);
+
+    setTimeout(() => setDispatchStep(2), 400); // sending SMS
+    setTimeout(() => setDispatchStep(3), 850); // emailing DGMS
+    setTimeout(() => setDispatchStep(4), 1300); // sounding siren
+
+    try {
+      const apiRes = await api.triggerTestBroadcast(selectedPanelId || 'PANEL-B3');
+      const logRecord: BroadcastLogItem = {
+        id: `TX-${Date.now().toString().slice(-6)}`,
+        timestamp: new Date().toLocaleTimeString(),
+        panel_id: selectedPanelId || 'PANEL-B3',
+        trigger_type: 'MANUAL_TEST',
+        status: 'DELIVERED',
+        sms_receipt: apiRes?.channels?.sms?.gateway_tx || `TX-NIC-${Math.floor(10000 + Math.random() * 90000)}`,
+        dgms_receipt: apiRes?.channels?.email?.receipt || `SMTP-DGMS-${Math.floor(1000 + Math.random() * 9000)}`,
+        siren_status: 'ACTIVE (120dB Pulse - Zone 4 Perimeter)',
+        recipients_count: 3 + supervisors.length,
+        message_preview: `[DGMS URGENT]: Surface strata subsidence drill alert. Displacement 14.8mm recorded over Panel B3, Korba Colliery. Evacuate surface perimeter immediately.`
+      };
+
+      setTimeout(() => {
+        setDispatchStep(5);
+        setCurrentDispatchResult(logRecord);
+        recordBroadcastLog(logRecord);
+      }, 1650);
+    } catch (err) {
+      console.error(err);
+      setTimeout(() => setDispatchStep(5), 1650);
+    }
+  };
+
+  const handleOpenEditTargets = () => {
+    setEditForm({ ...broadcastConfig });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveTargets = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateBroadcastConfig(editForm);
+    setEditSavedSuccess(true);
+    setTimeout(() => {
+      setEditSavedSuccess(false);
+      setIsEditModalOpen(false);
+    }, 1000);
+  };
+
+  const handleSelectSupervisor = (supId: string) => {
+    const found = supervisors.find(s => s.id === supId);
+    if (found) {
+      setEditForm(prev => ({
+        ...prev,
+        smsTargetName: `${found.name} (${found.designation})`,
+        smsTargetPhone: found.phone
+      }));
     }
   };
 
@@ -125,60 +226,120 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
       </div>
 
       {/* Emergency Multi-Channel Broadcast Console */}
-      <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-lg p-5 text-white shadow-md space-y-4">
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-lg p-5 text-white shadow-md space-y-4 border border-slate-700">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-              <h3 className="text-sm font-bold tracking-wide uppercase text-slate-200">
-                Automated Multi-Channel Emergency Broadcast Dispatcher
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+              <h3 className="text-sm font-bold tracking-wide uppercase text-slate-100 flex items-center gap-2">
+                <span>Automated Multi-Channel Emergency Broadcast Dispatcher</span>
               </h3>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-300 mt-0.5">
               Direct telemetry integration with NIC SMS Gateway, DGMS Regional Circle email bulletins, and site sirens
             </p>
           </div>
 
-          <button
-            onClick={() => {
-              const confirmSend = window.confirm("Trigger automated emergency SMS and email broadcast to Mine Safety Officer and DGMS Inspector?");
-              if (confirmSend) {
-                alert("Emergency broadcast dispatched via NIC SMS Gateway to 3 designated emergency contacts.");
-              }
-            }}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded font-semibold text-xs transition shadow-sm cursor-pointer"
-          >
-            <Bell className="w-3.5 h-3.5 animate-bounce" />
-            <span>Test Emergency Broadcast (SMS & Email)</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleOpenEditTargets}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 hover:text-white rounded font-semibold text-xs transition border border-slate-600 cursor-pointer shadow-xs"
+            >
+              <Pencil className="w-3.5 h-3.5 text-blue-400" />
+              <span>Edit Dispatch Details</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleTriggerTestBroadcast}
+              className="flex items-center gap-2 px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded font-bold text-xs transition shadow-md cursor-pointer border border-red-500"
+            >
+              <Radio className="w-3.5 h-3.5 animate-pulse" />
+              <span>Test Emergency Broadcast (SMS & Email)</span>
+            </button>
+          </div>
         </div>
 
         {/* Channels & Recipient List Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-          <div className="bg-slate-800/80 rounded border border-slate-700 p-3 space-y-1">
-            <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">SMS Gateway (NIC/CDAC)</div>
-            <div className="font-semibold text-emerald-400 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Direct Telecommunication Active
+          {/* Channel 1: SMS Gateway */}
+          <div className="bg-slate-800/80 rounded-lg border border-slate-700/80 p-3.5 space-y-1.5">
+            <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+              SMS GATEWAY (NIC/CDAC)
             </div>
-            <div className="text-[11px] text-slate-300">Target: Er. R.K. Sharma (+91 98765 43210)</div>
+            <div className="font-semibold text-emerald-400 flex items-center gap-1.5 text-xs">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span>Direct Telecommunication Active</span>
+            </div>
+            <div className="text-xs text-slate-300">
+              Target: <span className="font-medium text-slate-200">{broadcastConfig.smsTargetName} ({broadcastConfig.smsTargetPhone})</span>
+            </div>
           </div>
 
-          <div className="bg-slate-800/80 rounded border border-slate-700 p-3 space-y-1">
-            <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">DGMS Statutory Bulletin</div>
-            <div className="font-semibold text-blue-400 flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Regional Circle Connected
+          {/* Channel 2: DGMS Statutory Bulletin */}
+          <div className="bg-slate-800/80 rounded-lg border border-slate-700/80 p-3.5 space-y-1.5">
+            <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+              DGMS STATUTORY BULLETIN
             </div>
-            <div className="text-[11px] text-slate-300">Target: Dr. V.P. Sen (dgms.bilaspur@dgms.gov.in)</div>
+            <div className="font-semibold text-blue-400 flex items-center gap-1.5 text-xs">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              <span>Regional Circle Connected</span>
+            </div>
+            <div className="text-xs text-slate-300 truncate" title={`${broadcastConfig.dgmsRecipientName} (${broadcastConfig.dgmsRecipientEmail})`}>
+              Target: <span className="font-medium text-slate-200">{broadcastConfig.dgmsRecipientName} ({broadcastConfig.dgmsRecipientEmail})</span>
+            </div>
           </div>
 
-          <div className="bg-slate-800/80 rounded border border-slate-700 p-3 space-y-1">
-            <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">On-Site Surface Evacuation</div>
-            <div className="font-semibold text-amber-400 flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5" /> Panel B3 Perimeter Siren
+          {/* Channel 3: On-Site Surface Evacuation */}
+          <div className="bg-slate-800/80 rounded-lg border border-slate-700/80 p-3.5 space-y-1.5">
+            <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+              ON-SITE SURFACE EVACUATION
             </div>
-            <div className="text-[11px] text-slate-300">Target: Korba Block-A Central Control Room</div>
+            <div className="font-semibold text-amber-400 flex items-center gap-1.5 text-xs">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>Panel B3 Perimeter Siren</span>
+            </div>
+            <div className="text-xs text-slate-300">
+              Target: <span className="font-medium text-slate-200">{broadcastConfig.sirenLocation}</span>
+            </div>
           </div>
         </div>
+
+        {/* Collapsible Dispatch History Logs */}
+        {broadcastLogs.length > 0 && (
+          <div className="pt-2 border-t border-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => setShowLogs(!showLogs)}
+              className="flex items-center gap-1.5 text-slate-300 hover:text-white font-semibold cursor-pointer"
+            >
+              <History className="w-3.5 h-3.5 text-blue-400" />
+              <span>Emergency Dispatch Logs ({broadcastLogs.length} transmissions)</span>
+              {showLogs ? <ChevronUp className="w-3.5 h-3.5 ml-1" /> : <ChevronDown className="w-3.5 h-3.5 ml-1" />}
+            </button>
+
+            {showLogs && (
+              <div className="mt-2 space-y-2 bg-slate-950/70 p-3 rounded border border-slate-800 max-h-40 overflow-y-auto font-mono text-[11px]">
+                {broadcastLogs.map((log) => (
+                  <div key={log.id} className="flex flex-wrap items-center justify-between border-b border-slate-800/80 pb-1.5 text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <span className="text-emerald-400 font-bold">[{log.status}]</span>
+                      <span className="text-white font-bold">{log.id}</span>
+                      <span className="text-slate-400">{log.timestamp}</span>
+                      <span className="text-blue-300 font-sans font-semibold">({log.panel_id})</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 flex items-center gap-3">
+                      <span>SMS: {log.sms_receipt}</span>
+                      <span>DGMS: {log.dgms_receipt}</span>
+                      <span className="text-amber-300">{log.siren_status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Alert Cards List */}
@@ -337,6 +498,363 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
           </div>
         )}
       </div>
+
+      {/* 1. Interactive Test Emergency Broadcast Progress Modal */}
+      {isDispatchModalOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-[99999] flex items-center justify-center p-4 overflow-y-auto"
+          onClick={() => dispatchStep === 5 && setIsDispatchModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl max-w-xl w-full border border-slate-300 overflow-hidden text-xs animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Radio className="w-4 h-4 text-red-500 animate-pulse" />
+                <span className="font-bold text-sm">Emergency Multi-Channel Telemetry Dispatch</span>
+              </div>
+              {dispatchStep === 5 && (
+                <button
+                  type="button"
+                  onClick={() => setIsDispatchModalOpen(false)}
+                  className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* Telemetry Context Box */}
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-slate-700 space-y-1">
+                <div className="font-bold text-slate-900 flex items-center justify-between">
+                  <span>Geotechnical Trigger: Panel B3 Core Subsidence Drill</span>
+                  <span className="text-[10px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-mono font-bold">
+                    14.8 mm / 2.3° TILT
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Simulating automated statutory escalation across physical and wireless telecommunication channels.
+                </p>
+              </div>
+
+              {/* Step Sequence */}
+              <div className="space-y-3">
+                {/* Step 1: Telemetry Analysis */}
+                <div className={`flex items-start gap-3 p-2.5 rounded border transition ${
+                  dispatchStep >= 1 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}>
+                  <div className="mt-0.5">
+                    {dispatchStep >= 2 ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : dispatchStep === 1 ? (
+                      <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                    ) : (
+                      <span className="w-4 h-4 rounded-full border border-slate-300 block" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs">1. Geotechnical Anomaly Formulation</div>
+                    <div className="text-[11px] text-slate-600">
+                      Telemetry verified across 24 LoRa mesh nodes. Surface tension fracture circuit tripped.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 2: NIC SMS Broadcast */}
+                <div className={`flex items-start gap-3 p-2.5 rounded border transition ${
+                  dispatchStep >= 2 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}>
+                  <div className="mt-0.5">
+                    {dispatchStep >= 3 ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : dispatchStep === 2 ? (
+                      <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                    ) : (
+                      <span className="w-4 h-4 rounded-full border border-slate-300 block" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs">2. NIC SMS Gateway API Broadcast</div>
+                    <div className="text-[11px] text-slate-600">
+                      Dispatched to <span className="font-bold">{broadcastConfig.smsTargetName}</span> ({broadcastConfig.smsTargetPhone}) via {broadcastConfig.smsGatewayRoute}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 3: DGMS Regional Email */}
+                <div className={`flex items-start gap-3 p-2.5 rounded border transition ${
+                  dispatchStep >= 3 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}>
+                  <div className="mt-0.5">
+                    {dispatchStep >= 4 ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : dispatchStep === 3 ? (
+                      <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                    ) : (
+                      <span className="w-4 h-4 rounded-full border border-slate-300 block" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs">3. DGMS Statutory Regional Circle Bulletin</div>
+                    <div className="text-[11px] text-slate-600">
+                      Transmitted CMR-2017 Form IV incident brief to <span className="font-bold">{broadcastConfig.dgmsRecipientEmail}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Step 4: Perimeter Siren */}
+                <div className={`flex items-start gap-3 p-2.5 rounded border transition ${
+                  dispatchStep >= 4 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}>
+                  <div className="mt-0.5">
+                    {dispatchStep >= 5 ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : dispatchStep === 4 ? (
+                      <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+                    ) : (
+                      <span className="w-4 h-4 rounded-full border border-slate-300 block" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs">4. On-Site Surface Perimeter Siren Activation</div>
+                    <div className="text-[11px] text-slate-600">
+                      Pulsed Modbus TCP relay at {broadcastConfig.sirenLocation} ({broadcastConfig.sirenRelayChannel})
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Complete Confirmation & Payload Preview */}
+              {dispatchStep === 5 && currentDispatchResult && (
+                <div className="space-y-3 animate-in fade-in duration-200">
+                  <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-bold text-xs">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>All Emergency Channels Successfully Triggered & Acknowledged!</span>
+                    </div>
+                    <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                      {currentDispatchResult.id}
+                    </span>
+                  </div>
+
+                  {/* SMS Payload Display */}
+                  <div className="bg-slate-900 text-slate-200 p-3 rounded-lg border border-slate-800 space-y-1">
+                    <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Live SMS Payload (Sender: CDAC-MINESAFE)</span>
+                      <span className="text-emerald-400 font-bold">DELIVERED</span>
+                    </div>
+                    <p className="text-[11px] font-sans leading-relaxed text-slate-100 italic bg-slate-800/80 p-2 rounded border border-slate-700">
+                      "{currentDispatchResult.message_preview}"
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">
+                {dispatchStep < 5 ? 'Dispatch sequence in progress...' : 'Transmission logged in statutory audit register.'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsDispatchModalOpen(false)}
+                disabled={dispatchStep < 5}
+                className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded font-semibold text-xs transition cursor-pointer disabled:opacity-50"
+              >
+                Close Console
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Edit Dispatch Targets & Details Modal */}
+      {isEditModalOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-[99999] flex items-center justify-center p-4 overflow-y-auto"
+          onClick={() => setIsEditModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-300 overflow-hidden text-xs animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-blue-400" />
+                <span className="font-bold text-sm">Configure Emergency Dispatch Channels & Targets</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveTargets} className="p-5 space-y-4">
+              {/* Quick Select from Enrolled Supervisors */}
+              {supervisors.length > 0 && (
+                <div className="bg-blue-50/70 p-3 rounded-lg border border-blue-200">
+                  <label className="block text-blue-900 font-semibold mb-1 text-[11px]">
+                    Quick Assign from Safety Supervisors Roster:
+                  </label>
+                  <select
+                    onChange={(e) => handleSelectSupervisor(e.target.value)}
+                    className="w-full bg-white border border-blue-300 rounded px-2.5 py-1.5 text-slate-800 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value="">-- Choose active supervisor from roster --</option>
+                    {supervisors.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} • {s.designation} ({s.phone})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Section 1: SMS Gateway Target */}
+              <div className="space-y-2 border-b border-slate-200 pb-3">
+                <span className="font-bold text-slate-900 block text-xs flex items-center gap-1.5 text-emerald-700">
+                  <Smartphone className="w-3.5 h-3.5" /> 1. SMS Gateway Target Contact
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 mb-1 text-[11px]">Target Officer Name & Role</label>
+                    <input
+                      type="text"
+                      value={editForm.smsTargetName}
+                      onChange={(e) => setEditForm({ ...editForm, smsTargetName: e.target.value })}
+                      required
+                      className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 mb-1 text-[11px]">SMS Contact Phone (+91)</label>
+                    <input
+                      type="tel"
+                      value={editForm.smsTargetPhone}
+                      onChange={(e) => setEditForm({ ...editForm, smsTargetPhone: e.target.value })}
+                      required
+                      className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-slate-600 mb-1 text-[11px]">Gateway Route / Sender ID</label>
+                  <input
+                    type="text"
+                    value={editForm.smsGatewayRoute}
+                    onChange={(e) => setEditForm({ ...editForm, smsGatewayRoute: e.target.value })}
+                    required
+                    className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Section 2: DGMS Statutory Email */}
+              <div className="space-y-2 border-b border-slate-200 pb-3">
+                <span className="font-bold text-slate-900 block text-xs flex items-center gap-1.5 text-blue-700">
+                  <Mail className="w-3.5 h-3.5" /> 2. DGMS Statutory Bulletin Target
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 mb-1 text-[11px]">DGMS Authority / Regional Circle</label>
+                    <input
+                      type="text"
+                      value={editForm.dgmsRecipientName}
+                      onChange={(e) => setEditForm({ ...editForm, dgmsRecipientName: e.target.value })}
+                      required
+                      className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 mb-1 text-[11px]">DGMS Official Email Address</label>
+                    <input
+                      type="email"
+                      value={editForm.dgmsRecipientEmail}
+                      onChange={(e) => setEditForm({ ...editForm, dgmsRecipientEmail: e.target.value })}
+                      required
+                      className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-slate-600 mb-1 text-[11px]">Statutory Compliance Reference</label>
+                  <input
+                    type="text"
+                    value={editForm.dgmsRegulationRef}
+                    onChange={(e) => setEditForm({ ...editForm, dgmsRegulationRef: e.target.value })}
+                    required
+                    className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Section 3: On-Site Siren */}
+              <div className="space-y-2">
+                <span className="font-bold text-slate-900 block text-xs flex items-center gap-1.5 text-amber-700">
+                  <Volume2 className="w-3.5 h-3.5" /> 3. Surface Evacuation Siren Relay
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-600 mb-1 text-[11px]">Siren Physical Station Location</label>
+                    <input
+                      type="text"
+                      value={editForm.sirenLocation}
+                      onChange={(e) => setEditForm({ ...editForm, sirenLocation: e.target.value })}
+                      required
+                      className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-600 mb-1 text-[11px]">Modbus TCP PLC Relay Channel</label>
+                    <input
+                      type="text"
+                      value={editForm.sirenRelayChannel}
+                      onChange={(e) => setEditForm({ ...editForm, sirenRelayChannel: e.target.value })}
+                      required
+                      className="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {editSavedSuccess && (
+                <div className="bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-md p-2.5 flex items-center gap-2 font-semibold">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>Emergency dispatch channels and targets successfully updated!</span>
+                </div>
+              )}
+
+              {/* Form Buttons */}
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-semibold text-xs transition cursor-pointer border border-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold text-xs transition cursor-pointer shadow-xs"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Save Dispatch Details</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

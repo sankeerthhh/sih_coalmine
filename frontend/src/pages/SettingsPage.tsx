@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Sliders, ShieldAlert, Plus, Check, Save, Radio, Trash2, ArrowLeft, UserCheck, Phone, Clock, MapPin } from 'lucide-react';
+import { Settings, Sliders, ShieldAlert, Plus, Check, Save, Radio, Trash2, ArrowLeft, UserCheck, Phone, Clock, MapPin, Pencil, X } from 'lucide-react';
 import { useSensorStore, Supervisor } from '../store/sensorStore';
 import { SensorNode } from '../types';
 
@@ -8,7 +8,17 @@ interface SettingsPageProps {
 }
 
 export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) => {
-  const { sensors, thresholds, updateThresholds, addSensor, removeSensor, supervisors, addSupervisor, removeSupervisor } = useSensorStore();
+  const { 
+    sensors, 
+    thresholds, 
+    updateThresholds, 
+    addSensor, 
+    removeSensor, 
+    supervisors, 
+    addSupervisor, 
+    updateSupervisor, 
+    removeSupervisor 
+  } = useSensorStore();
 
   const [warningThreshold, setWarningThreshold] = useState(thresholds.warningThreshold);
   const [highThreshold, setHighThreshold] = useState(thresholds.highThreshold);
@@ -23,13 +33,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
   const [newNodeLon, setNewNodeLon] = useState('82.7570');
   const [nodeAddSuccess, setNodeAddSuccess] = useState(false);
 
-  // Supervisor Form State
+  // Supervisor Form State (Enrollment)
   const [supName, setSupName] = useState('');
   const [supRole, setSupRole] = useState('Shift Safety Overman');
   const [supPhone, setSupPhone] = useState('+91 ');
   const [supShift, setSupShift] = useState('Morning (06:00 - 14:00)');
   const [supPanel, setSupPanel] = useState('PANEL-B3');
   const [supAddSuccess, setSupAddSuccess] = useState(false);
+
+  // Supervisor Edit Modal State
+  const [editingSupervisor, setEditingSupervisor] = useState<Supervisor | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editShift, setEditShift] = useState('');
+  const [editPanel, setEditPanel] = useState('');
+  const [editSuccess, setEditSuccess] = useState(false);
 
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,7 +110,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
       id: `SUP-${Date.now().toString().slice(-4)}`,
       name: supName.trim(),
       designation: supRole,
-      phone: supPhone.trim() || '+91 98765 00000',
+      phone: supPhone.trim() || '+91 94415 62832',
       shift: supShift,
       assignedPanel: supPanel
     };
@@ -102,6 +121,32 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
       setSupName('');
       setSupPhone('+91 ');
     }, 2500);
+  };
+
+  const handleOpenEdit = (sup: Supervisor) => {
+    setEditingSupervisor(sup);
+    setEditName(sup.name);
+    setEditRole(sup.designation);
+    setEditPhone(sup.phone);
+    setEditShift(sup.shift);
+    setEditPanel(sup.assignedPanel);
+  };
+
+  const handleSaveSupervisorEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSupervisor || !editName.trim()) return;
+    updateSupervisor(editingSupervisor.id, {
+      name: editName.trim(),
+      designation: editRole,
+      phone: editPhone.trim(),
+      shift: editShift,
+      assignedPanel: editPanel
+    });
+    setEditSuccess(true);
+    setTimeout(() => {
+      setEditSuccess(false);
+      setEditingSupervisor(null);
+    }, 1200);
   };
 
   return (
@@ -403,7 +448,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
               <label className="block text-slate-500 mb-1 text-[11px]">Full Name</label>
               <input
                 type="text"
-                placeholder="e.g. Er. R. K. Sharma"
+                placeholder="e.g. Er. Sai Sankeerth Reddy"
                 value={supName}
                 onChange={(e) => setSupName(e.target.value)}
                 required
@@ -430,7 +475,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
               <label className="block text-slate-500 mb-1 text-[11px]">Contact (SMS Alert Target)</label>
               <input
                 type="tel"
-                placeholder="+91 98765 43210"
+                placeholder="+91 94415 62832"
                 value={supPhone}
                 onChange={(e) => setSupPhone(e.target.value)}
                 required
@@ -517,14 +562,25 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
                   </td>
                   <td className="p-3 font-semibold text-blue-700">{sup.assignedPanel}</td>
                   <td className="p-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => removeSupervisor(sup.id)}
-                      title={`Remove ${sup.name}`}
-                      className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(sup)}
+                        title={`Edit details for ${sup.name}`}
+                        className="flex items-center gap-1 px-2.5 py-1 text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded text-xs font-semibold transition cursor-pointer border border-blue-200 shadow-2xs"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        <span>Edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeSupervisor(sup.id)}
+                        title={`Remove ${sup.name}`}
+                        className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -539,6 +595,131 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
           </table>
         </div>
       </div>
+
+      {/* Edit Supervisor Modal */}
+      {editingSupervisor && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-[99999] flex items-center justify-center p-4 overflow-y-auto"
+          onClick={() => setEditingSupervisor(null)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-300 overflow-hidden text-xs animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-blue-400" />
+                <span className="font-bold text-sm">Edit Mine Safety Supervisor ({editingSupervisor.id})</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingSupervisor(null)}
+                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveSupervisorEdit} className="p-5 space-y-4">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Supervisor Full Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Designation / Statutory Role</label>
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-xs"
+                >
+                  <option value="Mine Safety Officer (SECL)">Mine Safety Officer (SECL)</option>
+                  <option value="Surface Geotechnical In-Charge">Surface Geotechnical In-Charge</option>
+                  <option value="Shift Safety Overman">Shift Safety Overman</option>
+                  <option value="First Class Mine Manager">First Class Mine Manager</option>
+                  <option value="Wireless Mesh Field Engineer">Wireless Mesh Field Engineer</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Contact (SMS Alert Broadcast Target)</label>
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  required
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Assigned Shift</label>
+                  <select
+                    value={editShift}
+                    onChange={(e) => setEditShift(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-xs"
+                  >
+                    <option value="Morning (06:00 - 14:00)">Morning (06:00 - 14:00)</option>
+                    <option value="Evening (14:00 - 22:00)">Evening (14:00 - 22:00)</option>
+                    <option value="Night (22:00 - 06:00)">Night (22:00 - 06:00)</option>
+                    <option value="General Shift (09:00 - 17:00)">General Shift (09:00 - 17:00)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Mining Sector / Panel</label>
+                  <select
+                    value={editPanel}
+                    onChange={(e) => setEditPanel(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-xs"
+                  >
+                    <option value="Panel B3 (Active Depillaring)">Panel B3 (Active Depillaring)</option>
+                    <option value="Panel B2 & B3">Panel B2 & B3</option>
+                    <option value="Panel B2 (Development Section)">Panel B2 (Development Section)</option>
+                    <option value="Panel B1 (Continuous Miner)">Panel B1 (Continuous Miner)</option>
+                    <option value="Panel A2 (Post-Depillared)">Panel A2 (Post-Depillared)</option>
+                    <option value="Panel A1 (Sealed Gaf)">Panel A1 (Sealed Gaf)</option>
+                  </select>
+                </div>
+              </div>
+
+              {editSuccess && (
+                <div className="bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-md p-2.5 flex items-center gap-2 font-semibold">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  <span>Supervisor details successfully updated!</span>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingSupervisor(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-xs transition cursor-pointer border border-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold text-xs transition cursor-pointer shadow-xs"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

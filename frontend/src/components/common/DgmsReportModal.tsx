@@ -234,7 +234,7 @@ export const DgmsReportModal: React.FC<DgmsReportModalProps> = ({ isOpen, onClos
               </p>
               <div className="space-y-1">
                 <div className="border-b border-slate-400 w-48 pb-6"></div>
-                <div className="font-bold text-slate-900">Er. R. K. Sharma</div>
+                <div className="font-bold text-slate-900">Er. Sai Sankeerth Reddy</div>
                 <div className="text-slate-500">Mine Safety Officer / Colliery Surveyor (SECL)</div>
               </div>
             </div>

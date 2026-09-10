@@ -17,6 +17,30 @@ export interface Supervisor {
   assignedPanel: string;
 }
 
+export interface BroadcastConfig {
+  smsTargetName: string;
+  smsTargetPhone: string;
+  smsGatewayRoute: string;
+  dgmsRecipientName: string;
+  dgmsRecipientEmail: string;
+  dgmsRegulationRef: string;
+  sirenLocation: string;
+  sirenRelayChannel: string;
+}
+
+export interface BroadcastLogItem {
+  id: string;
+  timestamp: string;
+  panel_id: string;
+  trigger_type: 'MANUAL_TEST' | 'AUTOMATED_CRITICAL';
+  status: 'DELIVERED' | 'DISPATCHING' | 'FAILED';
+  sms_receipt: string;
+  dgms_receipt: string;
+  siren_status: string;
+  recipients_count: number;
+  message_preview: string;
+}
+
 interface SensorState {
   sensors: SensorNode[];
   selectedSensorId: string | null;
@@ -24,6 +48,8 @@ interface SensorState {
   riskSummary: RiskSummary | null;
   alerts: Alert[];
   supervisors: Supervisor[];
+  broadcastConfig: BroadcastConfig;
+  broadcastLogs: BroadcastLogItem[];
   lastUpdateTimestamp: Date;
   activeScenario: string;
   thresholds: ThresholdConfig;
@@ -37,12 +63,15 @@ interface SensorState {
   addSensor: (sensor: SensorNode) => void;
   removeSensor: (id: string) => void;
   addSupervisor: (supervisor: Supervisor) => void;
+  updateSupervisor: (id: string, updated: Partial<Supervisor>) => void;
   removeSupervisor: (id: string) => void;
+  updateBroadcastConfig: (config: Partial<BroadcastConfig>) => void;
+  recordBroadcastLog: (log: BroadcastLogItem) => void;
   updateThresholds: (thresholds: Partial<ThresholdConfig>) => void;
   acknowledgeAlertLocal: (id: string, operator?: string) => void;
   resolveAlertLocal: (id: string, operator?: string) => void;
   applyLocalScenario: (scenario: string) => void;
-  
+
   updateFromWebSocket: (telemetryData: any) => void;
 }
 
@@ -56,34 +85,103 @@ const DEFAULT_THRESHOLDS: ThresholdConfig = {
 const DEFAULT_SUPERVISORS: Supervisor[] = [
   {
     id: 'SUP-01',
-    name: 'Er. R. K. Sharma',
+    name: 'R Sai Sankeerth Reddy',
     designation: 'Mine Safety Officer (SECL)',
-    phone: '+91 98765 43210',
+    phone: '+91 94415 62832',
     shift: 'Morning (06:00 - 14:00)',
     assignedPanel: 'Panel B3 (Active Depillaring)'
   },
   {
     id: 'SUP-02',
-    name: 'Er. Ananya Patel',
+    name: 'Dr. Veldandi Aishwarya',
     designation: 'Surface Geotechnical In-Charge',
-    phone: '+91 94255 12345',
+    phone: '+91 73961 08692',
     shift: 'Evening (14:00 - 22:00)',
     assignedPanel: 'Panel B2 & B3'
   },
   {
     id: 'SUP-03',
-    name: 'Er. Vikramaditya Singh',
+    name: 'yeshwanth',
     designation: 'Shift Overman (Extraction)',
-    phone: '+91 77592 88990',
+    phone: '+91 78158 07618',
     shift: 'Night (22:00 - 06:00)',
     assignedPanel: 'Panel B3 (Active Depillaring)'
   }
 ];
 
+const DEFAULT_BROADCAST_CONFIG: BroadcastConfig = {
+  smsTargetName: 'R Sai Sankeerth Reddy',
+  smsTargetPhone: '+91 94415 62832',
+  smsGatewayRoute: 'NIC / CDAC Kavach (Sender ID: MINESAFE)',
+  dgmsRecipientName: 'Dr. Veldandi Aishwarya',
+  dgmsRecipientEmail: 'veldandiaishwarya21@gmail.com',
+  dgmsRegulationRef: 'CMR 2017 Reg 111 & 112 Statutory Notice',
+  sirenLocation: 'Korba Block-A Central Control Room',
+  sirenRelayChannel: 'Panel B3 Perimeter Siren (Modbus TCP CH-04)'
+};
+
+function loadStoredBroadcastConfig(): BroadcastConfig {
+  try {
+    const raw = localStorage.getItem('mine_subsidence_broadcast_cfg');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Auto-migrate if previously saved with legacy or old contacts
+      if (
+        parsed.smsTargetPhone?.includes('98765') || 
+        parsed.smsTargetName?.includes('Sharma') ||
+        parsed.smsTargetName?.includes('Officer') ||
+        parsed.smsTargetName !== 'R Sai Sankeerth Reddy' ||
+        parsed.dgmsRecipientEmail?.includes('bilaspur') ||
+        parsed.dgmsRecipientEmail?.includes('gov.in') ||
+        parsed.dgmsRecipientName?.includes('Sen') ||
+        parsed.dgmsRecipientName?.includes('Directorate') ||
+        parsed.dgmsRecipientName !== 'Dr. Veldandi Aishwarya'
+      ) {
+        parsed.smsTargetName = 'R Sai Sankeerth Reddy';
+        parsed.smsTargetPhone = '+91 94415 62832';
+        parsed.dgmsRecipientName = 'Dr. Veldandi Aishwarya';
+        parsed.dgmsRecipientEmail = 'veldandiaishwarya21@gmail.com';
+        parsed.sirenLocation = 'Korba Block-A Central Control Room';
+        localStorage.setItem('mine_subsidence_broadcast_cfg', JSON.stringify(parsed));
+      }
+      return { ...DEFAULT_BROADCAST_CONFIG, ...parsed };
+    }
+  } catch {
+    // fallback
+  }
+  return DEFAULT_BROADCAST_CONFIG;
+}
+
 function loadStoredSupervisors(): Supervisor[] {
   try {
     const raw = localStorage.getItem('mine_subsidence_supervisors');
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const list: Supervisor[] = JSON.parse(raw);
+      let changed = false;
+      const migrated = list.map(s => {
+        if (s.id === 'SUP-01' && (s.name.includes('Sharma') || s.phone.includes('98765') || s.name !== 'R Sai Sankeerth Reddy')) {
+          changed = true;
+          return {
+            ...s,
+            name: 'R Sai Sankeerth Reddy',
+            phone: '+91 94415 62832'
+          };
+        }
+        if (s.id === 'SUP-02' && (!s.name.includes('Dr.') || s.name.includes('Gupta'))) {
+          changed = true;
+          return {
+            ...s,
+            name: 'Dr. Veldandi Aishwarya',
+            phone: '+91 73961 08692'
+          };
+        }
+        return s;
+      });
+      if (changed) {
+        localStorage.setItem('mine_subsidence_supervisors', JSON.stringify(migrated));
+      }
+      return migrated;
+    }
   } catch {
     // fallback
   }
@@ -107,6 +205,8 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   riskSummary: null,
   alerts: [],
   supervisors: loadStoredSupervisors(),
+  broadcastConfig: loadStoredBroadcastConfig(),
+  broadcastLogs: [],
   lastUpdateTimestamp: new Date(),
   activeScenario: 'NORMAL',
   thresholds: loadStoredThresholds(),
@@ -121,7 +221,7 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   addSensor: (newSensor: SensorNode) => {
     const current = get().sensors;
     const exists = current.some(s => s.id === newSensor.id);
-    const updated = exists 
+    const updated = exists
       ? current.map(s => s.id === newSensor.id ? newSensor : s)
       : [...current, newSensor];
     set({ sensors: updated });
@@ -143,6 +243,16 @@ export const useSensorStore = create<SensorState>((set, get) => ({
     set({ supervisors: updated });
   },
 
+  updateSupervisor: (id: string, updatedFields: Partial<Supervisor>) => {
+    const updated = get().supervisors.map(s => s.id === id ? { ...s, ...updatedFields } : s);
+    try {
+      localStorage.setItem('mine_subsidence_supervisors', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+    set({ supervisors: updated });
+  },
+
   removeSupervisor: (id: string) => {
     const updated = get().supervisors.filter(s => s.id !== id);
     try {
@@ -151,6 +261,20 @@ export const useSensorStore = create<SensorState>((set, get) => ({
       // ignore
     }
     set({ supervisors: updated });
+  },
+
+  updateBroadcastConfig: (config: Partial<BroadcastConfig>) => {
+    const updated = { ...get().broadcastConfig, ...config };
+    try {
+      localStorage.setItem('mine_subsidence_broadcast_cfg', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+    set({ broadcastConfig: updated });
+  },
+
+  recordBroadcastLog: (log: BroadcastLogItem) => {
+    set({ broadcastLogs: [log, ...get().broadcastLogs].slice(0, 30) });
   },
 
   updateThresholds: (config: Partial<ThresholdConfig>) => {
@@ -165,7 +289,7 @@ export const useSensorStore = create<SensorState>((set, get) => ({
 
   acknowledgeAlertLocal: (id: string, operator: string = 'Mine Safety Officer') => {
     set({
-      alerts: get().alerts.map(a => 
+      alerts: get().alerts.map(a =>
         a.id === id ? { ...a, status: 'ACKNOWLEDGED', acknowledged_by: operator, acknowledged_at: new Date().toISOString() } : a
       )
     });
@@ -173,7 +297,7 @@ export const useSensorStore = create<SensorState>((set, get) => ({
 
   resolveAlertLocal: (id: string, operator: string = 'Mine Safety Officer') => {
     set({
-      alerts: get().alerts.map(a => 
+      alerts: get().alerts.map(a =>
         a.id === id ? { ...a, status: 'RESOLVED', resolved_at: new Date().toISOString(), acknowledged_by: a.acknowledged_by || operator } : a
       )
     });

@@ -43,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onSelectPage }) =
   ];
 
   return (
-    <aside className="w-64 bg-[#0F172A] text-slate-300 flex flex-col justify-between shrink-0 h-screen sticky top-0 z-30 border-r border-slate-800">
+    <aside className="w-64 bg-[#0F172A] text-slate-300 flex flex-col justify-between shrink-0 h-screen sticky top-0 z-40 border-r border-slate-800">
       <div>
         {/* Project & Ministry Logo Branding */}
         <div className="p-5 border-b border-slate-800 flex items-center gap-3">

@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({ isOffline: propOffline, lastUpda
 
   return (
     <>
-      <header className="bg-white border-b border-[#E2E8F0] sticky top-0 z-30">
+      <header className="bg-white border-b border-[#E2E8F0] sticky top-0 z-40">
         {/* Critical Subsidence Siren Banner */}
         {isCritical && (
           <div className="bg-rose-700 text-white px-4 py-2 text-xs font-bold flex items-center justify-between animate-pulse shadow-md">
