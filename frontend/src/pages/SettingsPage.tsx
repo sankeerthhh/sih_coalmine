@@ -417,7 +417,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
 
       {/* Card 3: Provisioned Surface Sensors Directory & Management */}
       <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4 flex-wrap gap-2">
           <div>
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <Radio className="w-3.5 h-3.5 text-blue-600" />
@@ -427,9 +427,19 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
               Live hardware telemetry units communicating via LoRa mesh
             </p>
           </div>
-          <span className="text-xs font-mono text-slate-500 font-semibold">
-            Cadence: {samplingInterval}s
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-slate-600 font-semibold bg-slate-100 px-2 py-1 rounded border border-slate-200">
+              Cadence: {samplingInterval}s
+            </span>
+            <button
+              type="button"
+              onClick={() => handleOpenEditNode(sensors[0])}
+              className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded font-semibold text-xs transition cursor-pointer shadow-2xs"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Edit Nodes</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
@@ -438,10 +448,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
             return (
               <div
                 key={sensor.id}
-                className="p-2.5 rounded-md border border-slate-200 bg-slate-50/70 flex items-center justify-between hover:bg-white transition"
+                onClick={() => handleOpenEditNode(sensor)}
+                className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-blue-300 hover:shadow-xs flex items-center justify-between transition cursor-pointer group"
               >
                 <div>
-                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900 group-hover:text-blue-600 transition">
                     <span className={`w-2 h-2 rounded-full ${
                       calculatedStatus === 'CRITICAL' ? 'bg-red-600' :
                       calculatedStatus === 'WARNING' ? 'bg-amber-500' :
@@ -458,23 +469,30 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
                     {sensor.panel_id}
                   </span>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
-                    onClick={() => handleOpenEditNode(sensor)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenEditNode(sensor);
+                    }}
                     title={`Edit node ${sensor.id} configuration`}
-                    className="p-1 text-slate-400 hover:text-blue-600 rounded hover:bg-blue-50 transition cursor-pointer"
+                    className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition cursor-pointer shadow-2xs"
                   >
-                    <Pencil className="w-3.5 h-3.5" />
+                    <Pencil className="w-2.5 h-2.5" />
+                    <span>Edit</span>
                   </button>
                   {!sensor.is_gateway && (
                     <button
                       type="button"
-                      onClick={() => removeSensor(sensor.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeSensor(sensor.id);
+                      }}
                       title={`Deprovision node ${sensor.id}`}
                       className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3 h-3" />
                     </button>
                   )}
                 </div>
@@ -817,6 +835,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
 
             {/* Modal Form */}
             <form onSubmit={handleSaveEditNode} className="p-5 space-y-4">
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex items-center justify-between gap-3">
+                <span className="font-semibold text-slate-700 text-xs flex items-center gap-1.5">
+                  <Pencil className="w-3 h-3 text-blue-600" />
+                  <span>Select Node to Edit:</span>
+                </span>
+                <select
+                  value={editingNode.id}
+                  onChange={(e) => {
+                    const target = sensors.find(s => s.id === e.target.value);
+                    if (target) handleOpenEditNode(target);
+                  }}
+                  className="bg-white border border-slate-300 rounded px-2.5 py-1 font-bold text-blue-700 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-2xs"
+                >
+                  {sensors.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.id} {s.is_gateway ? '(Substation GW)' : `(${s.panel_id})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">Node Identifier (UID)</label>
