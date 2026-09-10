@@ -6,13 +6,14 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { useSensorStore } from '../store/sensorStore';
 import { api } from '../services/api';
 import { MeshNetwork, SensorNode } from '../types';
+import { getCalculatedNodeStatus } from '../utils/statusUtils';
 
 interface SensorNetworkPageProps {
   onNavigatePage: (page: any) => void;
 }
 
 export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigatePage }) => {
-  const { sensors, selectedSensorId, setSelectedSensorId } = useSensorStore();
+  const { sensors, selectedSensorId, setSelectedSensorId, activeScenario } = useSensorStore();
   const [meshData, setMeshData] = useState<MeshNetwork | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -25,7 +26,8 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
   const filteredSensors = sensors.filter((s) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch = s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || s.panel_id.toLowerCase().includes(q);
-    const matchesStatus = statusFilter === 'ALL' || s.status === statusFilter;
+    const calculatedStatus = getCalculatedNodeStatus(s, activeScenario);
+    const matchesStatus = statusFilter === 'ALL' || calculatedStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -190,6 +192,7 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
                 const resultantTilt = reading 
                   ? Math.sqrt(reading.tilt_x**2 + reading.tilt_y**2).toFixed(2) 
                   : '0.00';
+                const calculatedStatus = getCalculatedNodeStatus(node, activeScenario);
 
                 return (
                   <tr
@@ -212,7 +215,7 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
                     </td>
 
                     <td className="py-2.5 px-3">
-                      <StatusBadge status={node.status} size="sm" />
+                      <StatusBadge status={calculatedStatus} size="sm" />
                     </td>
 
                     <td className="py-2.5 px-3 font-mono font-semibold text-slate-900">

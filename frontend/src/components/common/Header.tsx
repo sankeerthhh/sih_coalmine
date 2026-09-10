@@ -5,9 +5,11 @@ import { useSensorStore } from '../../store/sensorStore';
 import { DgmsReportModal } from './DgmsReportModal';
 import { offlineSyncService } from '../../services/offlineSync';
 
+import { isCriticalScenario } from '../../utils/statusUtils';
+
 interface HeaderProps {
-  isOffline: boolean;
-  lastUpdate: Date;
+  isOffline?: boolean;
+  lastUpdate?: Date;
 }
 
 export const Header: React.FC<HeaderProps> = ({ isOffline: propOffline, lastUpdate }) => {
@@ -27,13 +29,13 @@ export const Header: React.FC<HeaderProps> = ({ isOffline: propOffline, lastUpda
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const diff = Math.max(0, Math.floor((new Date().getTime() - lastUpdate.getTime()) / 1000));
+      const diff = lastUpdate ? Math.max(0, Math.floor((new Date().getTime() - lastUpdate.getTime()) / 1000)) : 0;
       setSecondsAgo(diff);
     }, 1000);
     return () => clearInterval(timer);
   }, [lastUpdate]);
 
-  const isCritical = activeScenario === 'CRITICAL_SUBSIDENCE';
+  const isCritical = isCriticalScenario(activeScenario);
 
   return (
     <>

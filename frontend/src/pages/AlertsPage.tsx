@@ -394,9 +394,10 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
                     {new Date(alt.created_at).toLocaleString()}
                   </span>
                   <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                    alt.status === 'ACTIVE' ? 'bg-red-100 text-red-800' :
-                    alt.status === 'ACKNOWLEDGED' ? 'bg-amber-100 text-amber-800' :
-                    'bg-emerald-100 text-emerald-800'
+                    alt.status === 'ACTIVE'
+                      ? (alt.severity === 'CRITICAL' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800')
+                      : alt.status === 'ACKNOWLEDGED' ? 'bg-orange-100 text-orange-800' :
+                      'bg-emerald-100 text-emerald-800'
                   }`}>
                     {alt.status}
                   </span>

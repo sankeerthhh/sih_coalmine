@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { X, Battery, Wifi, Activity, AlertTriangle, Clock, ArrowUpRight, ArrowLeft } from 'lucide-react';
 import { SensorNode } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
+import { useSensorStore } from '../../store/sensorStore';
+import { getCalculatedNodeStatus } from '../../utils/statusUtils';
 
 interface NodeDetailDrawerProps {
   node: SensorNode | null;
@@ -10,6 +12,8 @@ interface NodeDetailDrawerProps {
 }
 
 export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({ node, onClose, onViewAnalytics }) => {
+  const { activeScenario } = useSensorStore();
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -20,6 +24,7 @@ export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({ node, onClos
 
   if (!node) return null;
 
+  const calculatedStatus = getCalculatedNodeStatus(node, activeScenario);
   const reading = node.latest_reading;
   const resultantTilt = reading 
     ? Math.sqrt(reading.tilt_x**2 + reading.tilt_y**2).toFixed(2)
@@ -39,7 +44,7 @@ export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({ node, onClos
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-slate-900">{node.id}</h2>
-              <StatusBadge status={node.status} size="sm" />
+              <StatusBadge status={calculatedStatus} size="sm" />
             </div>
             <p className="text-xs text-slate-500 mt-0.5">{node.name}</p>
           </div>

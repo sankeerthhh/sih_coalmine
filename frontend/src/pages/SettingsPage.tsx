@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Settings, Sliders, ShieldAlert, Plus, Check, Save, Radio, Trash2, ArrowLeft, UserCheck, Phone, Clock, MapPin, Pencil, X } from 'lucide-react';
 import { useSensorStore, Supervisor } from '../store/sensorStore';
 import { SensorNode } from '../types';
+import { getCalculatedNodeStatus } from '../utils/statusUtils';
 
 interface SettingsPageProps {
   onNavigatePage?: (page: any) => void;
@@ -17,7 +18,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
     supervisors, 
     addSupervisor, 
     updateSupervisor, 
-    removeSupervisor 
+    removeSupervisor,
+    activeScenario
   } = useSensorStore();
 
   const [warningThreshold, setWarningThreshold] = useState(thresholds.warningThreshold);
@@ -383,19 +385,21 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
-          {sensors.map((sensor) => (
-            <div
-              key={sensor.id}
-              className="p-2.5 rounded-md border border-slate-200 bg-slate-50/70 flex items-center justify-between hover:bg-white transition"
-            >
-              <div>
-                <div className="flex items-center gap-1.5 font-bold text-slate-900">
-                  <span className={`w-2 h-2 rounded-full ${
-                    sensor.status === 'CRITICAL' ? 'bg-red-600' :
-                    sensor.status === 'WARNING' ? 'bg-amber-500' :
-                    sensor.status === 'OFFLINE' ? 'bg-slate-400' : 'bg-emerald-600'
-                  }`} />
-                  {sensor.id}
+          {sensors.map((sensor) => {
+            const calculatedStatus = getCalculatedNodeStatus(sensor, activeScenario);
+            return (
+              <div
+                key={sensor.id}
+                className="p-2.5 rounded-md border border-slate-200 bg-slate-50/70 flex items-center justify-between hover:bg-white transition"
+              >
+                <div>
+                  <div className="flex items-center gap-1.5 font-bold text-slate-900">
+                    <span className={`w-2 h-2 rounded-full ${
+                      calculatedStatus === 'CRITICAL' ? 'bg-red-600' :
+                      calculatedStatus === 'WARNING' ? 'bg-amber-500' :
+                      calculatedStatus === 'OFFLINE' ? 'bg-slate-400' : 'bg-emerald-600'
+                    }`} />
+                    {sensor.id}
                   {sensor.is_gateway && (
                     <span className="text-[9px] bg-blue-100 text-blue-800 px-1 py-0.2 rounded font-bold">
                       GW
@@ -418,7 +422,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
                 </button>
               )}
             </div>
-          ))}
+          );
+        })}
         </div>
       </div>
 

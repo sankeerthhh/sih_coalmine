@@ -561,19 +561,117 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   updateFromWebSocket: (payload) => {
     if (!payload) return;
 
+    const activeScenario = get().activeScenario;
+
+    const applyScenarioOverrides = (list: SensorNode[]): SensorNode[] => {
+      if (!activeScenario || activeScenario === 'NORMAL') return list;
+
+      return list.map(s => {
+        if (activeScenario === 'SUBSIDENCE_CRITICAL' || activeScenario === 'CRITICAL_SUBSIDENCE') {
+          if (['N14', 'N15'].includes(s.id)) {
+            return {
+              ...s,
+              status: 'CRITICAL' as const,
+              latest_reading: {
+                ...(s.latest_reading || {
+                  id: Math.random(),
+                  node_id: s.id,
+                  timestamp: new Date().toISOString(),
+                  battery_level: 80,
+                  signal_strength: -75,
+                  is_outlier: true
+                }),
+                tilt_x: s.id === 'N14' ? 5.8 : 6.2,
+                tilt_y: s.id === 'N14' ? 6.4 : 5.8,
+                displacement: s.id === 'N14' ? 44.2 : 38.5,
+                vibration: 1.85,
+                crack_detected: true,
+                anomaly_score: 92.0,
+                timestamp: s.latest_reading?.timestamp || new Date().toISOString()
+              }
+            };
+          }
+          if (['N12', 'N13', 'N16'].includes(s.id)) {
+            return {
+              ...s,
+              status: 'WARNING' as const,
+              latest_reading: {
+                ...(s.latest_reading || {
+                  id: Math.random(),
+                  node_id: s.id,
+                  timestamp: new Date().toISOString(),
+                  battery_level: 82,
+                  signal_strength: -74,
+                  is_outlier: false
+                }),
+                tilt_x: 3.2,
+                tilt_y: 3.5,
+                displacement: 22.0,
+                vibration: 0.95,
+                crack_detected: false,
+                anomaly_score: 72.0,
+                timestamp: s.latest_reading?.timestamp || new Date().toISOString()
+              }
+            };
+          }
+        }
+        if (activeScenario === 'EARLY_WARNING') {
+          if (['N12', 'N13', 'N14', 'N15'].includes(s.id)) {
+            return {
+              ...s,
+              status: 'WARNING' as const,
+              latest_reading: {
+                ...(s.latest_reading || {
+                  id: Math.random(),
+                  node_id: s.id,
+                  timestamp: new Date().toISOString(),
+                  battery_level: 85,
+                  signal_strength: -72,
+                  is_outlier: false
+                }),
+                tilt_x: 2.1,
+                tilt_y: 2.8,
+                displacement: 16.5,
+                vibration: 0.45,
+                crack_detected: false,
+                anomaly_score: 54.0,
+                timestamp: s.latest_reading?.timestamp || new Date().toISOString()
+              }
+            };
+          }
+        }
+        if (activeScenario === 'SENSOR_FAILURE' && s.id === 'N14') {
+          return {
+            ...s,
+            status: 'OFFLINE' as const,
+            signal_strength_rssi: -115,
+            battery_level: 0
+          };
+        }
+        if (activeScenario === 'NETWORK_FAILURE' && ['N12', 'N13'].includes(s.id)) {
+          return {
+            ...s,
+            status: 'WARNING' as const,
+            signal_strength_rssi: -98
+          };
+        }
+        return s;
+      });
+    };
+
     // Direct sensors array update
     if (Array.isArray(payload)) {
-      set({ sensors: payload, lastUpdateTimestamp: new Date() });
+      set({ sensors: applyScenarioOverrides(payload), lastUpdateTimestamp: new Date() });
       return;
     }
 
     if (payload.sensors && Array.isArray(payload.sensors)) {
-      set({ sensors: payload.sensors, lastUpdateTimestamp: new Date() });
+      set({ sensors: applyScenarioOverrides(payload.sensors), lastUpdateTimestamp: new Date() });
       return;
     }
 
     const { reading, risk, alert } = payload;
-    const currentSensors = [...get().sensors];
+    let currentSensors = [...get().sensors];
 
     if (reading) {
       const idx = currentSensors.findIndex(s => s.id === reading.node_id);
@@ -588,6 +686,8 @@ export const useSensorStore = create<SensorState>((set, get) => ({
         };
       }
     }
+
+    currentSensors = applyScenarioOverrides(currentSensors);
 
     set({
       sensors: currentSensors,

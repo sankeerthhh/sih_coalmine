@@ -178,11 +178,17 @@ export const AiRiskPage: React.FC<AiRiskPageProps> = ({ onNavigatePage }) => {
                 </h3>
               </div>
               <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
-                currentScore > 60
+                currentScore >= 80
                   ? 'bg-red-50 text-red-700 border-red-200 animate-pulse'
+                  : currentScore >= 40
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
                   : 'bg-emerald-50 text-emerald-700 border-emerald-200'
               }`}>
-                {currentScore > 60 ? 'ACCELERATING SHEAR PHASE' : 'STABLE ELASTIC REGIME'}
+                {currentScore >= 80
+                  ? 'ACCELERATING SHEAR FAILURE (CRITICAL)'
+                  : currentScore >= 40
+                  ? 'DEVELOPING INELASTIC CREEP (WARNING)'
+                  : 'STABLE ELASTIC REGIME (NORMAL)'}
               </span>
             </div>
 
@@ -190,24 +196,24 @@ export const AiRiskPage: React.FC<AiRiskPageProps> = ({ onNavigatePage }) => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                 <span className="text-[10px] text-slate-500 font-medium block">Deformation Velocity</span>
-                <span className={`text-base font-extrabold mt-0.5 block ${currentScore > 60 ? 'text-red-600' : 'text-slate-900'}`}>
-                  {currentScore > 60 ? '14.8 mm/day' : '0.24 mm/day'}
+                <span className={`text-base font-extrabold mt-0.5 block ${currentScore >= 80 ? 'text-red-600' : currentScore >= 40 ? 'text-amber-600' : 'text-slate-900'}`}>
+                  {currentScore >= 80 ? '14.8 mm/day' : currentScore >= 40 ? '4.8 mm/day' : '0.24 mm/day'}
                 </span>
                 <span className="text-[10px] text-slate-400">Rate of change (v)</span>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                 <span className="text-[10px] text-slate-500 font-medium block">Strain Acceleration</span>
-                <span className={`text-base font-extrabold mt-0.5 block ${currentScore > 60 ? 'text-amber-600' : 'text-slate-900'}`}>
-                  {currentScore > 60 ? '+2.85 mm/day²' : '0.01 mm/day²'}
+                <span className={`text-base font-extrabold mt-0.5 block ${currentScore >= 80 ? 'text-red-600' : currentScore >= 40 ? 'text-amber-600' : 'text-slate-900'}`}>
+                  {currentScore >= 80 ? '+2.85 mm/day²' : currentScore >= 40 ? '+0.85 mm/day²' : '0.01 mm/day²'}
                 </span>
                 <span className="text-[10px] text-slate-400">Curvature rate (a)</span>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                 <span className="text-[10px] text-slate-500 font-medium block">Time to Critical 50mm Limit</span>
-                <span className={`text-base font-extrabold mt-0.5 block ${currentScore > 60 ? 'text-red-700 font-mono animate-pulse' : 'text-emerald-700 font-mono'}`}>
-                  {currentScore > 60 ? '16.4 Hours' : '> 168 Hours'}
+                <span className={`text-base font-extrabold mt-0.5 block font-mono ${currentScore >= 80 ? 'text-red-700 animate-pulse' : currentScore >= 40 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                  {currentScore >= 80 ? '16.4 Hours' : currentScore >= 40 ? '48.0 Hours' : '> 168 Hours'}
                 </span>
                 <span className="text-[10px] text-slate-400">DGMS limit (T_breach)</span>
               </div>
@@ -215,7 +221,7 @@ export const AiRiskPage: React.FC<AiRiskPageProps> = ({ onNavigatePage }) => {
               <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                 <span className="text-[10px] text-slate-500 font-medium block">Projected 48h Movement</span>
                 <span className="text-base font-extrabold text-blue-700 mt-0.5 block">
-                  {currentScore > 60 ? '29.6 mm (±2.4)' : '0.48 mm (±0.1)'}
+                  {currentScore >= 80 ? '29.6 mm (±2.4)' : currentScore >= 40 ? '9.6 mm (±1.2)' : '0.48 mm (±0.1)'}
                 </span>
                 <span className="text-[10px] text-slate-400">95% confidence band</span>
               </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Printer, Download, CheckCircle, ShieldCheck, AlertTriangle, FileText, ArrowLeft } from 'lucide-react';
 import { useSensorStore } from '../../store/sensorStore';
+import { isCriticalScenario, isWarningScenario } from '../../utils/statusUtils';
 
 interface DgmsReportModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ export const DgmsReportModal: React.FC<DgmsReportModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   const currentScenario = activeScenario;
+  const isCritical = isCriticalScenario(activeScenario) || riskSummary?.risk_classification === 'CRITICAL';
+  const isWarning = !isCritical && (isWarningScenario(activeScenario) || riskSummary?.risk_classification === 'WARNING');
   const riskScore = riskSummary?.current_risk_score ?? 15;
   const riskClassification = riskSummary?.risk_classification ?? 'NORMAL';
 
@@ -135,16 +138,16 @@ export const DgmsReportModal: React.FC<DgmsReportModalProps> = ({ isOpen, onClos
             </h3>
             <div className="flex items-center gap-4 p-3 rounded-lg border bg-slate-50">
               <div className="text-2xl font-black">
-                {currentScenario === 'NORMAL' && <span className="text-emerald-600">COMPLIANT (NORMAL)</span>}
-                {currentScenario === 'EARLY_WARNING' && <span className="text-amber-600">ELEVATED WATCH (WARNING)</span>}
-                {currentScenario === 'CRITICAL_SUBSIDENCE' && <span className="text-rose-600">CRITICAL HAZARD - RESTRICTED</span>}
+                {!isCritical && !isWarning && <span className="text-emerald-600">COMPLIANT (NORMAL)</span>}
+                {isWarning && <span className="text-amber-600">ELEVATED WATCH (WARNING)</span>}
+                {isCritical && <span className="text-rose-600">CRITICAL HAZARD - RESTRICTED</span>}
               </div>
               <div className="text-slate-600 text-[11px] leading-relaxed">
                 Overall AI Subsidence Risk Index: <span className="font-bold">{riskScore}/100</span> ({riskClassification}).
                 Surface strain and tilt sensors across 24 LoRa nodes currently show
-                {currentScenario === 'NORMAL' && ' permissible strata movement well within DGMS 3.0° and 50mm safe limits.'}
-                {currentScenario === 'EARLY_WARNING' && ' early signs of strata deflection over Panel B3. Precautionary monitoring active.'}
-                {currentScenario === 'CRITICAL_SUBSIDENCE' && ' severe localized ground tensile cracking and accelerated subsidence over Panel B3.'}
+                {!isCritical && !isWarning && ' permissible strata movement well within DGMS 3.0° and 50mm safe limits.'}
+                {isWarning && ' early signs of strata deflection over Panel B3. Precautionary monitoring active.'}
+                {isCritical && ' severe localized ground tensile cracking and accelerated subsidence over Panel B3.'}
               </div>
             </div>
           </div>
@@ -183,11 +186,11 @@ export const DgmsReportModal: React.FC<DgmsReportModalProps> = ({ isOpen, onClos
                 <tr>
                   <td className="border border-slate-300 p-2 font-medium">Surface Tension Crack Detection Circuit</td>
                   <td className="border border-slate-300 p-2 font-mono font-bold">
-                    {currentScenario === 'CRITICAL_SUBSIDENCE' ? 'BROKEN (Crack Active)' : 'CONTINUOUS (Intact)'}
+                    {isCritical ? 'BROKEN (Crack Active)' : 'CONTINUOUS (Intact)'}
                   </td>
                   <td className="border border-slate-300 p-2">Zero Fracture Tolerance</td>
                   <td className="border border-slate-300 p-2 font-semibold">
-                    {currentScenario === 'CRITICAL_SUBSIDENCE' ? <span className="text-rose-600">CRACK CONFIRMED</span> : <span className="text-emerald-600">Normal</span>}
+                    {isCritical ? <span className="text-rose-600 font-bold">CRACK CONFIRMED</span> : <span className="text-emerald-600 font-medium">Normal</span>}
                   </td>
                 </tr>
                 <tr>
@@ -219,8 +222,8 @@ export const DgmsReportModal: React.FC<DgmsReportModalProps> = ({ isOpen, onClos
               <div className="p-2.5 rounded border border-slate-200 bg-slate-50">
                 <div className="font-bold text-slate-900">Panel B3 (Depillaring Epicenter)</div>
                 <div className="text-slate-500">Status: Active Depillaring</div>
-                <div className={`font-semibold mt-1 ${currentScenario === 'CRITICAL_SUBSIDENCE' ? 'text-rose-600' : 'text-amber-600'}`}>
-                  Movement: {currentScenario === 'CRITICAL_SUBSIDENCE' ? '14.8 mm/day (ACCELERATED)' : '1.2 mm/day (Monitored)'}
+                <div className={`font-semibold mt-1 ${isCritical ? 'text-rose-600 font-bold' : isWarning ? 'text-amber-600 font-semibold' : 'text-emerald-600 font-medium'}`}>
+                  Movement: {isCritical ? '14.8 mm/day (ACCELERATED)' : isWarning ? '4.8 mm/day (Developing)' : '0.4 mm/day (Normal)'}
                 </div>
               </div>
             </div>

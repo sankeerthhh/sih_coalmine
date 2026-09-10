@@ -134,7 +134,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigatePage }) 
           unit="events"
           subtext="Operator actionable"
           icon={<Bell className="w-4 h-4 text-amber-600" />}
-          alertLevel={alerts.some(a => a.severity === 'CRITICAL' && a.status === 'ACTIVE') ? 'CRITICAL' : 'NEUTRAL'}
+          alertLevel={
+            alerts.some(a => a.severity === 'CRITICAL' && a.status === 'ACTIVE') ? 'CRITICAL' :
+            alerts.some(a => a.severity === 'WARNING' && a.status === 'ACTIVE') ? 'WARNING' :
+            'NORMAL'
+          }
         />
 
         <StatCard
@@ -263,9 +267,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigatePage }) 
                     </td>
                     <td className="py-2.5 px-2.5">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        alt.status === 'ACTIVE' ? 'bg-red-100 text-red-800' :
-                        alt.status === 'ACKNOWLEDGED' ? 'bg-amber-100 text-amber-800' :
-                        'bg-emerald-100 text-emerald-800'
+                        alt.status === 'ACTIVE'
+                          ? (alt.severity === 'CRITICAL' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800')
+                          : alt.status === 'ACKNOWLEDGED' ? 'bg-orange-100 text-orange-800' :
+                          'bg-emerald-100 text-emerald-800'
                       }`}>
                         {alt.status}
                       </span>

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Network, Wifi, Radio, Server, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { MeshNetwork, MeshLink } from '../../types';
+import { useSensorStore } from '../../store/sensorStore';
+import { getCalculatedNodeStatus, isCriticalScenario, isWarningScenario } from '../../utils/statusUtils';
 
 interface MeshVisualizerProps {
   meshData: MeshNetwork | null;
@@ -8,6 +10,7 @@ interface MeshVisualizerProps {
 }
 
 export const MeshVisualizer: React.FC<MeshVisualizerProps> = ({ meshData, onSelectNode }) => {
+  const { sensors, activeScenario } = useSensorStore();
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   if (!meshData || !meshData.nodes || meshData.nodes.length === 0) {
@@ -44,6 +47,14 @@ export const MeshVisualizer: React.FC<MeshVisualizerProps> = ({ meshData, onSele
     };
   });
 
+  // Compute synchronized health
+  const hasCritical = isCriticalScenario(activeScenario) || sensors.some(s => getCalculatedNodeStatus(s, activeScenario) === 'CRITICAL');
+  const hasWarning = isWarningScenario(activeScenario) || sensors.some(s => getCalculatedNodeStatus(s, activeScenario) === 'WARNING');
+  const activeMeshHealth = hasCritical ? 'CRITICAL' : hasWarning ? 'DEGRADED' : meshData.network_health;
+  const calculatedOnlineCount = sensors.length > 0 
+    ? sensors.filter(s => getCalculatedNodeStatus(s, activeScenario) !== 'OFFLINE').length 
+    : meshData.online_nodes;
+
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden flex flex-col">
       {/* Top Banner highlighting the unique SIH Innovation */}
@@ -67,17 +78,17 @@ export const MeshVisualizer: React.FC<MeshVisualizerProps> = ({ meshData, onSele
           <div className="bg-slate-800/80 px-3 py-1.5 rounded border border-slate-700">
             <span className="text-slate-400 block text-[10px] uppercase font-semibold">Mesh Health</span>
             <span className={`font-bold ${
-              meshData.network_health === 'HEALTHY' ? 'text-emerald-400' :
-              meshData.network_health === 'DEGRADED' ? 'text-amber-400' : 'text-red-400'
+              activeMeshHealth === 'HEALTHY' ? 'text-emerald-400' :
+              activeMeshHealth === 'DEGRADED' ? 'text-amber-400' : 'text-red-400'
             }`}>
-              {meshData.network_health}
+              {activeMeshHealth}
             </span>
           </div>
 
           <div className="bg-slate-800/80 px-3 py-1.5 rounded border border-slate-700">
             <span className="text-slate-400 block text-[10px] uppercase font-semibold">Active Nodes</span>
             <span className="font-bold text-slate-200">
-              {meshData.online_nodes} / {meshData.total_nodes}
+              {calculatedOnlineCount} / {meshData.total_nodes}
             </span>
           </div>
 
@@ -134,10 +145,13 @@ export const MeshVisualizer: React.FC<MeshVisualizerProps> = ({ meshData, onSele
             const coord = nodeCoords[node.id];
             if (!coord) return null;
 
+            const storeSensor = sensors.find(s => s.id === node.id);
+            const calculatedStatus = storeSensor ? getCalculatedNodeStatus(storeSensor, activeScenario) : node.status;
+
             const isGw = node.is_gateway;
-            const isOffline = node.status === 'OFFLINE';
-            const isCritical = node.status === 'CRITICAL';
-            const isWarning = node.status === 'WARNING';
+            const isOffline = calculatedStatus === 'OFFLINE';
+            const isCritical = calculatedStatus === 'CRITICAL';
+            const isWarning = calculatedStatus === 'WARNING';
 
             let fillColor = '#16A34A'; // Normal Green
             if (isGw) fillColor = '#0F172A';

@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { Layers, ChevronUp, ChevronDown } from 'lucide-react';
 import { SensorNode } from '../../types';
+import { useSensorStore } from '../../store/sensorStore';
+import { getCalculatedNodeStatus, isCriticalScenario, isWarningScenario } from '../../utils/statusUtils';
 
 interface GisMapProps {
   sensors: SensorNode[];
@@ -18,6 +20,7 @@ export const GisMap: React.FC<GisMapProps> = ({
   height = '600px',
   showPanelOverlays = true
 }) => {
+  const { activeScenario } = useSensorStore();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
@@ -185,22 +188,23 @@ export const GisMap: React.FC<GisMapProps> = ({
       });
     }
 
-    let hasCritical = false;
-    let hasWarning = false;
+    let hasCritical = isCriticalScenario(activeScenario);
+    let hasWarning = isWarningScenario(activeScenario);
 
     sensors.forEach((node) => {
+      const calculatedStatus = getCalculatedNodeStatus(node, activeScenario);
       let pinColor = '#16A34A'; // Normal Green
       let ringColor = 'rgba(22, 163, 74, 0.4)';
 
-      if (node.status === 'CRITICAL') {
+      if (calculatedStatus === 'CRITICAL') {
         pinColor = '#DC2626'; // Red
         ringColor = 'rgba(220, 38, 38, 0.6)';
         hasCritical = true;
-      } else if (node.status === 'WARNING') {
+      } else if (calculatedStatus === 'WARNING') {
         pinColor = '#F59E0B'; // Amber
         ringColor = 'rgba(245, 158, 11, 0.6)';
         hasWarning = true;
-      } else if (node.status === 'OFFLINE') {
+      } else if (calculatedStatus === 'OFFLINE') {
         pinColor = '#64748B'; // Grey
         ringColor = 'rgba(100, 116, 139, 0.4)';
       }
@@ -227,7 +231,7 @@ export const GisMap: React.FC<GisMapProps> = ({
               ${isGateway ? 'GW' : node.id.replace('N', '')}
             </span>
           </div>
-          ${(node.status === 'CRITICAL' || isGateway) ? `
+          ${(calculatedStatus === 'CRITICAL' || isGateway) ? `
             <div style="
               position: absolute;
               width: 100%;
@@ -257,7 +261,7 @@ export const GisMap: React.FC<GisMapProps> = ({
       const tooltipContent = `
         <div style="font-size: 11px; padding: 2px;">
           <b>${node.id}</b> — ${node.panel_id}<br/>
-          Status: <b>${node.status}</b><br/>
+          Status: <b>${calculatedStatus}</b><br/>
           Tilt: <b>${reading ? Math.sqrt(reading.tilt_x**2 + reading.tilt_y**2).toFixed(1) : 0}°</b> | Disp: <b>${reading?.displacement?.toFixed(1) ?? 0}mm</b>
         </div>
       `;
@@ -291,7 +295,7 @@ export const GisMap: React.FC<GisMapProps> = ({
       );
       dangerCircleRef.current = circle;
     }
-  }, [sensors, selectedNodeId, onSelectNode]);
+  }, [sensors, selectedNodeId, onSelectNode, activeScenario]);
 
   return (
     <div className="relative w-full rounded-lg overflow-hidden border border-slate-200 shadow-xs bg-slate-100 isolate z-0" style={{ height }}>
