@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { SensorNode, RiskSummary, Alert } from '../types';
+import { MOCK_ALERTS } from '../services/mockData';
 
 export interface ThresholdConfig {
   warningThreshold: number;
@@ -203,7 +204,7 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   selectedSensorId: null,
   selectedPanelId: 'PANEL-B3',
   riskSummary: null,
-  alerts: [],
+  alerts: [...MOCK_ALERTS],
   supervisors: loadStoredSupervisors(),
   broadcastConfig: loadStoredBroadcastConfig(),
   broadcastLogs: [],
@@ -215,7 +216,13 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   setSelectedSensorId: (id) => set({ selectedSensorId: id }),
   setSelectedPanelId: (panel) => set({ selectedPanelId: panel }),
   setRiskSummary: (riskSummary) => set({ riskSummary }),
-  setAlerts: (alerts) => set({ alerts }),
+  setAlerts: (newAlerts) => {
+    const current = get().alerts;
+    const activeUnsaved = current.filter(
+      curr => curr.status === 'ACTIVE' && !newAlerts.some(n => n.id === curr.id)
+    );
+    set({ alerts: [...activeUnsaved, ...newAlerts] });
+  },
   setActiveScenario: (activeScenario) => set({ activeScenario }),
 
   addSensor: (newSensor: SensorNode) => {

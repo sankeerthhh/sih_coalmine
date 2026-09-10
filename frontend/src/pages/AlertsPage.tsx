@@ -108,6 +108,24 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
 
     try {
       const apiRes = await api.triggerTestBroadcast(selectedPanelId || 'PANEL-B3');
+      const alertId = `ALT-${Date.now().toString().slice(-4)}`;
+      const newEmergencyAlert: Alert = {
+        id: alertId,
+        panel_id: selectedPanelId || 'PANEL-B3',
+        node_cluster: 'Cluster N14-N15',
+        title: 'Emergency Drill: Multi-Channel Broadcast Dispatched',
+        condition_detected: `Direct telemetry emergency broadcast triggered to ${broadcastConfig.smsTargetName} (${broadcastConfig.smsTargetPhone}) & ${broadcastConfig.dgmsRecipientName} (${broadcastConfig.dgmsRecipientEmail}). Ground displacement 14.8mm simulated.`,
+        severity: 'CRITICAL',
+        status: 'ACTIVE',
+        ai_risk_score: 88.0,
+        measured_tilt: 2.35,
+        measured_displacement: 14.8,
+        crack_detected: true,
+        recommended_action: 'Surface perimeter evacuated within 150m. Verify field receiver acknowledgments and siren operation.',
+        created_at: new Date().toISOString()
+      };
+      setAlerts([newEmergencyAlert, ...alerts.filter(a => a.id !== alertId)]);
+
       const logRecord: BroadcastLogItem = {
         id: `TX-${Date.now().toString().slice(-6)}`,
         timestamp: new Date().toLocaleTimeString(),

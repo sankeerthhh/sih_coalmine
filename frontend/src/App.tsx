@@ -9,6 +9,7 @@ import { PageType } from './types';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
 import { DemoSimulatorBar } from './components/common/DemoSimulatorBar';
+import { EmergencyAlertBanner } from './components/common/EmergencyAlertBanner';
 
 // Pages
 import { LoginPage } from './pages/LoginPage';
@@ -65,6 +66,9 @@ export const App: React.FC = () => {
 
         {/* Header with Mine Selector, Status, & Sync Counter */}
         <Header isOffline={isOffline} lastUpdate={lastUpdate} />
+
+        {/* Global Real-Time Emergency Alert Notification Banner */}
+        <EmergencyAlertBanner onNavigatePage={setCurrentPage} />
 
         {/* Dynamic Page Content View */}
         <main className="flex-1 p-6 overflow-y-auto">

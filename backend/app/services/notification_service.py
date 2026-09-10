@@ -14,8 +14,8 @@ class NotificationService:
 
     # Pre-configured emergency contact list per Ministry of Coal / SECL guidelines
     EMERGENCY_RECIPIENTS = [
-        {"name": "Er. Sai Sankeerth Reddy", "role": "Mine Safety Officer (SECL)", "phone": "+91 94415 62832", "email": "sankeerth.safety@secl.gov.in"},
-        {"name": "Dr. V. P. Sen", "role": "DGMS Regional Inspector (Bilaspur)", "phone": "+91 94252 87654", "email": "dgms.bilaspur@dgms.gov.in"},
+        {"name": "R Sai Sankeerth Reddy", "role": "Mine Safety Officer (SECL)", "phone": "+91 94415 62832", "email": "sankeerth.safety@secl.gov.in"},
+        {"name": "Dr. Veldandi Aishwarya", "role": "DGMS Regional Inspector (Bilaspur)", "phone": "+91 73961 08692", "email": "veldandiaishwarya21@gmail.com"},
         {"name": "Control Room A", "role": "Korba Surface Dispatcher", "phone": "+91 77592 21100", "email": "controlroom.korba@coal.gov.in"}
     ]
 

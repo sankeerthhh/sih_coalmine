@@ -747,6 +747,21 @@ export const MOCK_RISK_SUMMARY: RiskSummary = {
 
 export const MOCK_ALERTS: Alert[] = [
   {
+    id: "ALT-1000",
+    panel_id: "PANEL-B3",
+    node_cluster: "Cluster N14-N15",
+    title: "Critical Subsidence Warning: Accelerated Surface Micro-Strain",
+    condition_detected: "Elevated micro-strain and resultant tilt (2.45°) detected in Panel B3 depillaring boundary. Continuous displacement recorded at 14.8mm.",
+    severity: "CRITICAL",
+    status: "ACTIVE",
+    ai_risk_score: 84.5,
+    measured_tilt: 2.45,
+    measured_displacement: 14.8,
+    crack_detected: true,
+    recommended_action: "Halt depillaring operations in Panel B3. Trigger surface perimeter siren and dispatch emergency bulletins to safety officers.",
+    created_at: new Date(Date.now() - 300000).toISOString()
+  },
+  {
     id: "ALT-1001",
     panel_id: "PANEL-B3",
     node_cluster: "Cluster N12-N15",
@@ -759,7 +774,7 @@ export const MOCK_ALERTS: Alert[] = [
     measured_displacement: 8.2,
     crack_detected: false,
     recommended_action: "Conduct secondary optical leveling check on Panel B3 surface monuments.",
-    acknowledged_by: "Mine Safety Officer (SECL)",
+    acknowledged_by: "R Sai Sankeerth Reddy",
     acknowledged_at: new Date(Date.now() - 3600000).toISOString(),
     created_at: new Date(Date.now() - 7200000).toISOString()
   },

@@ -14,7 +14,64 @@ from app.models.mesh_link import MeshLink
 from app.models.alert import Alert
 
 def seed_database(db: Session):
-    # Check if already seeded
+    now = datetime.utcnow()
+    # Check if already seeded with alerts
+    if db.query(Alert).first() is None:
+        a1 = Alert(
+            id="ALT-1000",
+            panel_id="PANEL-B3",
+            node_cluster="Cluster N14-N15",
+            title="Critical Subsidence Warning: Accelerated Surface Micro-Strain",
+            condition_detected="Elevated micro-strain and resultant tilt (2.45°) detected in Panel B3 depillaring boundary. Continuous displacement recorded at 14.8mm.",
+            severity="CRITICAL",
+            status="ACTIVE",
+            ai_risk_score=84.5,
+            measured_tilt=2.45,
+            measured_displacement=14.8,
+            crack_detected=True,
+            recommended_action="Halt depillaring operations in Panel B3. Trigger surface perimeter siren and dispatch emergency bulletins to safety officers.",
+            created_at=now - timedelta(minutes=5)
+        )
+        a2 = Alert(
+            id="ALT-1001",
+            panel_id="PANEL-B3",
+            node_cluster="Cluster N12-N15",
+            title="Subsidence Risk Advisory Notice",
+            condition_detected="Elevated micro-strain detected in Panel B3 depillaring boundary.",
+            severity="WARNING",
+            status="ACKNOWLEDGED",
+            ai_risk_score=42.0,
+            measured_tilt=1.85,
+            measured_displacement=8.2,
+            crack_detected=False,
+            recommended_action="Conduct secondary optical leveling check on Panel B3 surface monuments.",
+            acknowledged_by="R Sai Sankeerth Reddy",
+            acknowledged_at=now - timedelta(hours=1),
+            created_at=now - timedelta(hours=2)
+        )
+        a3 = Alert(
+            id="ALT-1002",
+            panel_id="PANEL-A2",
+            node_cluster="Node N04-N05",
+            title="Post-Depillaring Settlement Baseline Reached",
+            condition_detected="Settlement rate stabilized below 0.05 mm/hr over 48h observation period.",
+            severity="WARNING",
+            status="RESOLVED",
+            ai_risk_score=22.0,
+            measured_tilt=0.45,
+            measured_displacement=3.1,
+            crack_detected=False,
+            recommended_action="Transition Panel A2 to low-frequency quiescent telemetry schedule.",
+            acknowledged_by="Chief Geologist",
+            acknowledged_at=now - timedelta(days=1),
+            resolved_at=now - timedelta(hours=12),
+            created_at=now - timedelta(days=2)
+        )
+        db.add_all([a1, a2, a3])
+        db.commit()
+        print("[SEED] Seeded statutory alerts into database.")
+
+    # Check if already seeded users
     if db.query(User).filter(User.email == "admin@coal.gov.in").first():
         return
 
@@ -182,6 +239,60 @@ def seed_database(db: Session):
             explanation="Ground movements within baseline geotechnical equilibrium tolerance."
         )
         db.add(ra)
+    db.commit()
+
+    # 8. Initial Alerts (DGMS Statutory & Colliery Alerts)
+    a1 = Alert(
+        id="ALT-1000",
+        panel_id="PANEL-B3",
+        node_cluster="Cluster N14-N15",
+        title="Critical Subsidence Warning: Accelerated Surface Micro-Strain",
+        condition_detected="Elevated micro-strain and resultant tilt (2.45°) detected in Panel B3 depillaring boundary. Continuous displacement recorded at 14.8mm.",
+        severity="CRITICAL",
+        status="ACTIVE",
+        ai_risk_score=84.5,
+        measured_tilt=2.45,
+        measured_displacement=14.8,
+        crack_detected=True,
+        recommended_action="Halt depillaring operations in Panel B3. Trigger surface perimeter siren and dispatch emergency bulletins to safety officers.",
+        created_at=now - timedelta(minutes=5)
+    )
+    a2 = Alert(
+        id="ALT-1001",
+        panel_id="PANEL-B3",
+        node_cluster="Cluster N12-N15",
+        title="Subsidence Risk Advisory Notice",
+        condition_detected="Elevated micro-strain detected in Panel B3 depillaring boundary.",
+        severity="WARNING",
+        status="ACKNOWLEDGED",
+        ai_risk_score=42.0,
+        measured_tilt=1.85,
+        measured_displacement=8.2,
+        crack_detected=False,
+        recommended_action="Conduct secondary optical leveling check on Panel B3 surface monuments.",
+        acknowledged_by="R Sai Sankeerth Reddy",
+        acknowledged_at=now - timedelta(hours=1),
+        created_at=now - timedelta(hours=2)
+    )
+    a3 = Alert(
+        id="ALT-1002",
+        panel_id="PANEL-A2",
+        node_cluster="Node N04-N05",
+        title="Post-Depillaring Settlement Baseline Reached",
+        condition_detected="Settlement rate stabilized below 0.05 mm/hr over 48h observation period.",
+        severity="WARNING",
+        status="RESOLVED",
+        ai_risk_score=22.0,
+        measured_tilt=0.45,
+        measured_displacement=3.1,
+        crack_detected=False,
+        recommended_action="Transition Panel A2 to low-frequency quiescent telemetry schedule.",
+        acknowledged_by="Chief Geologist",
+        acknowledged_at=now - timedelta(days=1),
+        resolved_at=now - timedelta(hours=12),
+        created_at=now - timedelta(days=2)
+    )
+    db.add_all([a1, a2, a3])
     db.commit()
 
     print("[SEED] Database seeding complete! Admin created (admin@coal.gov.in / Admin@Coal2026).")
