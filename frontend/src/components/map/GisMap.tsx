@@ -3,7 +3,7 @@ import L from 'leaflet';
 import { Layers, ChevronUp, ChevronDown } from 'lucide-react';
 import { SensorNode } from '../../types';
 import { useSensorStore } from '../../store/sensorStore';
-import { getCalculatedNodeStatus, isCriticalScenario, isWarningScenario } from '../../utils/statusUtils';
+import { getCalculatedNodeStatus, getActiveAlertForNode, isCriticalScenario, isWarningScenario } from '../../utils/statusUtils';
 
 interface GisMapProps {
   sensors: SensorNode[];
@@ -20,7 +20,7 @@ export const GisMap: React.FC<GisMapProps> = ({
   height = '600px',
   showPanelOverlays = true
 }) => {
-  const { activeScenario } = useSensorStore();
+  const { activeScenario, alerts } = useSensorStore();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
@@ -188,11 +188,12 @@ export const GisMap: React.FC<GisMapProps> = ({
       });
     }
 
-    let hasCritical = isCriticalScenario(activeScenario);
-    let hasWarning = isWarningScenario(activeScenario);
+    let hasCritical = isCriticalScenario(activeScenario) || alerts.some(a => a.status === 'ACTIVE' && a.severity === 'CRITICAL');
+    let hasWarning = isWarningScenario(activeScenario) || alerts.some(a => a.status === 'ACTIVE' && (a.severity === 'WARNING' || a.severity === 'HIGH'));
 
     sensors.forEach((node) => {
-      const calculatedStatus = getCalculatedNodeStatus(node, activeScenario);
+      const calculatedStatus = getCalculatedNodeStatus(node, activeScenario, alerts);
+      const activeAlert = getActiveAlertForNode(node, alerts);
       let pinColor = '#16A34A'; // Normal Green
       let ringColor = 'rgba(22, 163, 74, 0.4)';
 
@@ -261,7 +262,7 @@ export const GisMap: React.FC<GisMapProps> = ({
       const tooltipContent = `
         <div style="font-size: 11px; padding: 2px;">
           <b>${node.id}</b> — ${node.panel_id}<br/>
-          Status: <b>${calculatedStatus}</b><br/>
+          Status: <b style="color: ${pinColor}">${calculatedStatus}</b>${activeAlert ? `<br/><span style="color:#DC2626;font-weight:600;">⚠ Alert: ${activeAlert.title || activeAlert.id}</span>` : ''}<br/>
           Tilt: <b>${reading ? Math.sqrt(reading.tilt_x**2 + reading.tilt_y**2).toFixed(1) : 0}°</b> | Disp: <b>${reading?.displacement?.toFixed(1) ?? 0}mm</b>
         </div>
       `;
@@ -295,7 +296,7 @@ export const GisMap: React.FC<GisMapProps> = ({
       );
       dangerCircleRef.current = circle;
     }
-  }, [sensors, selectedNodeId, onSelectNode, activeScenario]);
+  }, [sensors, selectedNodeId, onSelectNode, activeScenario, alerts]);
 
   return (
     <div className="relative w-full rounded-lg overflow-hidden border border-slate-200 shadow-xs bg-slate-100 isolate z-0" style={{ height }}>

@@ -3,7 +3,7 @@ import { X, Battery, Wifi, Activity, AlertTriangle, Clock, ArrowUpRight, ArrowLe
 import { SensorNode } from '../../types';
 import { StatusBadge } from '../common/StatusBadge';
 import { useSensorStore } from '../../store/sensorStore';
-import { getCalculatedNodeStatus } from '../../utils/statusUtils';
+import { getCalculatedNodeStatus, getActiveAlertForNode } from '../../utils/statusUtils';
 
 interface NodeDetailDrawerProps {
   node: SensorNode | null;
@@ -12,7 +12,7 @@ interface NodeDetailDrawerProps {
 }
 
 export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({ node, onClose, onViewAnalytics }) => {
-  const { activeScenario } = useSensorStore();
+  const { activeScenario, alerts } = useSensorStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -24,7 +24,8 @@ export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({ node, onClos
 
   if (!node) return null;
 
-  const calculatedStatus = getCalculatedNodeStatus(node, activeScenario);
+  const calculatedStatus = getCalculatedNodeStatus(node, activeScenario, alerts);
+  const activeAlert = getActiveAlertForNode(node, alerts);
   const reading = node.latest_reading;
   const resultantTilt = reading 
     ? Math.sqrt(reading.tilt_x**2 + reading.tilt_y**2).toFixed(2)
@@ -60,6 +61,31 @@ export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({ node, onClos
 
       {/* Drawer Content */}
       <div className="p-5 space-y-5 overflow-y-auto flex-1 text-xs">
+        {/* Active Alert Banner */}
+        {activeAlert && (
+          <div className={`p-3 rounded-lg border flex items-start gap-2.5 ${
+            activeAlert.severity === 'CRITICAL'
+              ? 'bg-red-50 border-red-200 text-red-900'
+              : 'bg-amber-50 border-amber-200 text-amber-900'
+          }`}>
+            <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${
+              activeAlert.severity === 'CRITICAL' ? 'text-red-600 animate-pulse' : 'text-amber-600'
+            }`} />
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-[11px] uppercase tracking-wider">
+                  Active {activeAlert.severity} Alert
+                </span>
+                <span className="text-[10px] font-mono px-1 bg-white/80 rounded border border-current">
+                  {activeAlert.id}
+                </span>
+              </div>
+              <p className="font-semibold text-xs leading-snug">{activeAlert.title}</p>
+              <p className="text-[11px] text-slate-600">{activeAlert.condition_detected}</p>
+            </div>
+          </div>
+        )}
+
         {/* Geographic & Mesh Location */}
         <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-1.5">
           <div className="flex justify-between">

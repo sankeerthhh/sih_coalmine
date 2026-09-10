@@ -6,14 +6,14 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { useSensorStore } from '../store/sensorStore';
 import { api } from '../services/api';
 import { MeshNetwork, SensorNode } from '../types';
-import { getCalculatedNodeStatus } from '../utils/statusUtils';
+import { getCalculatedNodeStatus, getActiveAlertForNode } from '../utils/statusUtils';
 
 interface SensorNetworkPageProps {
   onNavigatePage: (page: any) => void;
 }
 
 export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigatePage }) => {
-  const { sensors, selectedSensorId, setSelectedSensorId, activeScenario } = useSensorStore();
+  const { sensors, selectedSensorId, setSelectedSensorId, activeScenario, alerts } = useSensorStore();
   const [meshData, setMeshData] = useState<MeshNetwork | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -26,7 +26,7 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
   const filteredSensors = sensors.filter((s) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch = s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || s.panel_id.toLowerCase().includes(q);
-    const calculatedStatus = getCalculatedNodeStatus(s, activeScenario);
+    const calculatedStatus = getCalculatedNodeStatus(s, activeScenario, alerts);
     const matchesStatus = statusFilter === 'ALL' || calculatedStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -192,7 +192,8 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
                 const resultantTilt = reading 
                   ? Math.sqrt(reading.tilt_x**2 + reading.tilt_y**2).toFixed(2) 
                   : '0.00';
-                const calculatedStatus = getCalculatedNodeStatus(node, activeScenario);
+                const calculatedStatus = getCalculatedNodeStatus(node, activeScenario, alerts);
+                const activeAlert = getActiveAlertForNode(node, alerts);
 
                 return (
                   <tr
@@ -215,7 +216,21 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
                     </td>
 
                     <td className="py-2.5 px-3">
-                      <StatusBadge status={calculatedStatus} size="sm" />
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <StatusBadge status={calculatedStatus} size="sm" />
+                        {activeAlert && (
+                          <span
+                            title={`${activeAlert.title} (${activeAlert.id})`}
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide border flex items-center gap-1 ${
+                              activeAlert.severity === 'CRITICAL'
+                                ? 'bg-red-100 text-red-700 border-red-300 animate-pulse'
+                                : 'bg-amber-100 text-amber-800 border-amber-300'
+                            }`}
+                          >
+                            ⚠ {activeAlert.severity}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     <td className="py-2.5 px-3 font-mono font-semibold text-slate-900">
