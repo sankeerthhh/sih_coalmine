@@ -14,6 +14,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
     thresholds, 
     updateThresholds, 
     addSensor, 
+    updateSensor,
     removeSensor, 
     supervisors, 
     addSupervisor, 
@@ -35,6 +36,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
   const [newNodeLon, setNewNodeLon] = useState('82.7570');
   const [nodeAddSuccess, setNodeAddSuccess] = useState(false);
 
+  // Node Edit Modal State
+  const [editingNode, setEditingNode] = useState<SensorNode | null>(null);
+  const [editNodeName, setEditNodeName] = useState('');
+  const [editNodePanel, setEditNodePanel] = useState('PANEL-B3');
+  const [editNodeLat, setEditNodeLat] = useState('22.3650');
+  const [editNodeLon, setEditNodeLon] = useState('82.7570');
+  const [editNodeModel, setEditNodeModel] = useState('');
+  const [editNodeParent, setEditNodeParent] = useState('N01');
+  const [editNodeIsGateway, setEditNodeIsGateway] = useState(false);
+  const [editNodeStatus, setEditNodeStatus] = useState<'ONLINE' | 'WARNING' | 'CRITICAL' | 'OFFLINE'>('ONLINE');
+  const [nodeEditSuccess, setNodeEditSuccess] = useState(false);
+
   // Supervisor Form State (Enrollment)
   const [supName, setSupName] = useState('');
   const [supRole, setSupRole] = useState('Shift Safety Overman');
@@ -51,6 +64,41 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
   const [editShift, setEditShift] = useState('');
   const [editPanel, setEditPanel] = useState('');
   const [editSuccess, setEditSuccess] = useState(false);
+
+  const handleOpenEditNode = (sensor: SensorNode) => {
+    setEditingNode(sensor);
+    setEditNodeName(sensor.name || `Surface Sensor ${sensor.id}`);
+    setEditNodePanel(sensor.panel_id || 'PANEL-B3');
+    setEditNodeLat(sensor.latitude !== undefined ? sensor.latitude.toString() : '22.3650');
+    setEditNodeLon(sensor.longitude !== undefined ? sensor.longitude.toString() : '82.7570');
+    setEditNodeModel(sensor.hardware_model || 'SEM-LR200 Inclinometer');
+    setEditNodeParent(sensor.mesh_parent_id || 'N01');
+    setEditNodeIsGateway(sensor.is_gateway || false);
+    setEditNodeStatus((sensor.status as any) || 'ONLINE');
+    setNodeEditSuccess(false);
+  };
+
+  const handleSaveEditNode = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNode) return;
+
+    updateSensor(editingNode.id, {
+      name: editNodeName.trim(),
+      panel_id: editNodePanel,
+      latitude: parseFloat(editNodeLat) || editingNode.latitude,
+      longitude: parseFloat(editNodeLon) || editingNode.longitude,
+      hardware_model: editNodeModel.trim(),
+      mesh_parent_id: editNodeIsGateway ? null : (editNodeParent === 'NONE' ? null : editNodeParent),
+      is_gateway: editNodeIsGateway,
+      status: editNodeStatus
+    });
+
+    setNodeEditSuccess(true);
+    setTimeout(() => {
+      setNodeEditSuccess(false);
+      setEditingNode(null);
+    }, 1200);
+  };
 
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -400,30 +448,39 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
                       calculatedStatus === 'OFFLINE' ? 'bg-slate-400' : 'bg-emerald-600'
                     }`} />
                     {sensor.id}
-                  {sensor.is_gateway && (
-                    <span className="text-[9px] bg-blue-100 text-blue-800 px-1 py-0.2 rounded font-bold">
-                      GW
-                    </span>
+                    {sensor.is_gateway && (
+                      <span className="text-[9px] bg-blue-100 text-blue-800 px-1 py-0.2 rounded font-bold">
+                        GW
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    {sensor.panel_id}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditNode(sensor)}
+                    title={`Edit node ${sensor.id} configuration`}
+                    className="p-1 text-slate-400 hover:text-blue-600 rounded hover:bg-blue-50 transition cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  {!sensor.is_gateway && (
+                    <button
+                      type="button"
+                      onClick={() => removeSensor(sensor.id)}
+                      title={`Deprovision node ${sensor.id}`}
+                      className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
-                <span className="text-[10px] text-slate-500 block mt-0.5">
-                  {sensor.panel_id}
-                </span>
               </div>
-
-              {!sensor.is_gateway && (
-                <button
-                  type="button"
-                  onClick={() => removeSensor(sensor.id)}
-                  title={`Deprovision node ${sensor.id}`}
-                  className="p-1 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
         </div>
       </div>
 
@@ -710,6 +767,189 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
                   type="button"
                   onClick={() => setEditingSupervisor(null)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md font-semibold text-xs transition cursor-pointer border border-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold text-xs transition cursor-pointer shadow-xs"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Provisioned Sensor Node Modal */}
+      {editingNode && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-[99999] flex items-center justify-center p-4 overflow-y-auto"
+          onClick={() => setEditingNode(null)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-300 overflow-hidden text-xs animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Radio className="w-4 h-4 text-blue-400" />
+                <span className="font-bold text-sm">
+                  Configure Hardware Node {editingNode.id}
+                  {editingNode.is_gateway && (
+                    <span className="ml-2 text-[10px] bg-blue-500/30 text-blue-300 border border-blue-400/40 px-1.5 py-0.5 rounded font-mono font-bold">
+                      GATEWAY
+                    </span>
+                  )}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingNode(null)}
+                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveEditNode} className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Node Identifier (UID)</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={editingNode.id}
+                    className="w-full bg-slate-100 border border-slate-300 rounded-md px-3 py-2 font-mono font-bold text-slate-500 cursor-not-allowed text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Assigned Underground Panel</label>
+                  <select
+                    value={editNodePanel}
+                    onChange={(e) => setEditNodePanel(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-xs"
+                  >
+                    <option value="PANEL-B3">Panel B3 (Active Depillaring)</option>
+                    <option value="PANEL-B2">Panel B2 (Development Section)</option>
+                    <option value="PANEL-B1">Panel B1 (Continuous Miner)</option>
+                    <option value="PANEL-A2">Panel A2 (Post-Depillared)</option>
+                    <option value="PANEL-A1">Panel A1 (Sealed Gaf)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Hardware Label / Friendly Name</label>
+                <input
+                  type="text"
+                  value={editNodeName}
+                  onChange={(e) => setEditNodeName(e.target.value)}
+                  required
+                  placeholder="e.g. Surface Displacement Sensor N14"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Hardware Sensor Model</label>
+                <input
+                  type="text"
+                  value={editNodeModel}
+                  onChange={(e) => setEditNodeModel(e.target.value)}
+                  placeholder="e.g. SEM-LR200 Inclinometer & Extensometer"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Surface Latitude (°N)</label>
+                  <input
+                    type="text"
+                    value={editNodeLat}
+                    onChange={(e) => setEditNodeLat(e.target.value)}
+                    required
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Surface Longitude (°E)</label>
+                  <input
+                    type="text"
+                    value={editNodeLon}
+                    onChange={(e) => setEditNodeLon(e.target.value)}
+                    required
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Mesh Parent Hop (Relay)</label>
+                  <select
+                    disabled={editNodeIsGateway}
+                    value={editNodeIsGateway ? 'NONE' : editNodeParent}
+                    onChange={(e) => setEditNodeParent(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-xs disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="N01">N01 (Gateway Direct Hop)</option>
+                    {sensors.filter(s => s.id !== editingNode.id && s.id !== 'N01').map(s => (
+                      <option key={s.id} value={s.id}>{s.id} ({s.panel_id})</option>
+                    ))}
+                    <option value="NONE">None / Standalone</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Status Override</label>
+                  <select
+                    value={editNodeStatus}
+                    onChange={(e) => setEditNodeStatus(e.target.value as any)}
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer text-xs"
+                  >
+                    <option value="ONLINE">ONLINE (Normal)</option>
+                    <option value="WARNING">WARNING (Elevated)</option>
+                    <option value="CRITICAL">CRITICAL (Breach)</option>
+                    <option value="OFFLINE">OFFLINE (Disconnected)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={editNodeIsGateway}
+                    onChange={(e) => setEditNodeIsGateway(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                  />
+                  <span className="text-slate-800 font-semibold text-xs">
+                    Designate as Primary Substation LoRa Gateway (GW)
+                  </span>
+                </label>
+              </div>
+
+              {nodeEditSuccess && (
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-md flex items-center gap-2 text-emerald-800 font-semibold text-xs animate-in fade-in">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Hardware node {editingNode.id} updated and synchronized across all dashboards!</span>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingNode(null)}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-md font-semibold text-xs transition cursor-pointer"
                 >
                   Cancel
                 </button>

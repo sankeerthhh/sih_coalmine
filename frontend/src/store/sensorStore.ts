@@ -62,6 +62,7 @@ interface SensorState {
   setAlerts: (alerts: Alert[]) => void;
   setActiveScenario: (scenario: string) => void;
   addSensor: (sensor: SensorNode) => void;
+  updateSensor: (id: string, updated: Partial<SensorNode>) => void;
   removeSensor: (id: string) => void;
   addSupervisor: (supervisor: Supervisor) => void;
   updateSupervisor: (id: string, updated: Partial<Supervisor>) => void;
@@ -232,6 +233,12 @@ export const useSensorStore = create<SensorState>((set, get) => ({
       ? current.map(s => s.id === newSensor.id ? newSensor : s)
       : [...current, newSensor];
     set({ sensors: updated });
+  },
+
+  updateSensor: (id: string, updated: Partial<SensorNode>) => {
+    const current = get().sensors;
+    const modified = current.map(s => s.id === id ? { ...s, ...updated } : s);
+    set({ sensors: modified, lastUpdateTimestamp: new Date() });
   },
 
   removeSensor: (id: string) => {
