@@ -8,7 +8,10 @@ import {
   Alert,
   MeshNetwork,
   SystemHealth,
-  SimulatorStatus
+  SimulatorStatus,
+  DataSourceMode,
+  SpatialZone,
+  MineHierarchy
 } from '../types';
 
 import {
@@ -19,7 +22,9 @@ import {
   MOCK_ALERTS,
   generateMockReadings,
   generateMockMesh,
-  MOCK_SYSTEM_HEALTH
+  MOCK_SYSTEM_HEALTH,
+  MOCK_MINES,
+  MOCK_SPATIAL_ZONES
 } from './mockData';
 
 const API_BASE = '/api/v1';
@@ -260,10 +265,31 @@ export const api = {
       return await handleResponse(res);
     } catch {
       return {
+        data_source: 'SIMULATION',
         is_running: true,
         current_scenario: scenario,
         active_affected_nodes: ['N12', 'N13', 'N14', 'N15'],
         tick_count: 42
+      };
+    }
+  },
+
+  async setSimulatorDataSource(dataSource: DataSourceMode): Promise<SimulatorStatus> {
+    try {
+      const res = await fetch(`${API_BASE}/simulator/mode`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ data_source: dataSource })
+      });
+      return await handleResponse(res);
+    } catch {
+      return {
+        data_source: dataSource,
+        is_running: dataSource === 'SIMULATION',
+        current_scenario: 'NORMAL',
+        active_affected_nodes: [],
+        tick_count: 0,
+        hardware_connected: false
       };
     }
   },
@@ -274,32 +300,139 @@ export const api = {
       return await handleResponse(res);
     } catch {
       return {
-        is_running: true,
+        data_source: 'SIMULATION',
+        is_running: false,
         current_scenario: 'NORMAL',
         active_affected_nodes: [],
-        tick_count: 1
+        tick_count: 0,
+        hardware_connected: false
       };
     }
   },
 
-  async triggerTestBroadcast(panelId: string = 'PANEL-B3'): Promise<any> {
+  async ingestReading(payload: {
+    node_id: string;
+    tilt_x: number;
+    tilt_y: number;
+    displacement: number;
+    vibration: number;
+    crack_detected?: boolean;
+    battery_level: number;
+    signal_strength: number;
+  }): Promise<any> {
+    const res = await fetch(`${API_BASE}/sensors/ingest`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return await handleResponse(res);
+  },
+
+  async triggerTestBroadcast(panelId: string = 'PANEL-B3', targetConfig?: any): Promise<any> {
+    const payload = {
+      panel_id: panelId,
+      sms_target_name: targetConfig?.smsTargetName,
+      sms_target_phone: targetConfig?.smsTargetPhone,
+      email_recipient_name: targetConfig?.dgmsRecipientName,
+      email_recipient_address: targetConfig?.dgmsRecipientEmail,
+      siren_location: targetConfig?.sirenLocation,
+      siren_relay_channel: targetConfig?.sirenRelayChannel
+    };
+    const res = await fetch(`${API_BASE}/alerts/broadcast-test`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return await handleResponse(res);
+  },
+
+  async getNotificationProviders(): Promise<any> {
     try {
-      const res = await fetch(`${API_BASE}/alerts/broadcast-test?panel_id=${panelId}`, {
+      const res = await fetch(`${API_BASE}/alerts/notification-providers`, { headers: getAuthHeaders() });
+      return await handleResponse(res);
+    } catch {
+      return { email_configured: false, sms_configured: false, email_provider: 'NONE', sms_provider: 'NONE' };
+    }
+  },
+
+  async getMines(): Promise<MineHierarchy[]> {
+    try {
+      const res = await fetch(`${API_BASE}/mines`, { headers: getAuthHeaders() });
+      return await handleResponse(res);
+    } catch {
+      return MOCK_MINES;
+    }
+  },
+
+  async getPredictedZones(panelId?: string): Promise<SpatialZone[]> {
+    try {
+      const url = `${API_BASE}/ai/zones${panelId ? `?panel_id=${panelId}` : ''}`;
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      return await handleResponse(res);
+    } catch {
+      if (panelId) {
+        return MOCK_SPATIAL_ZONES.filter(z => z.panel_id === panelId);
+      }
+      return MOCK_SPATIAL_ZONES;
+    }
+  },
+
+  async getAiExplanation(panelId: string = 'PANEL-B3', nodeId: string = 'N14'): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE}/ai/explain`, {
         method: 'POST',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ panel_id: panelId, node_id: nodeId })
       });
       return await handleResponse(res);
     } catch {
       return {
-        broadcast_id: `BC-${Date.now().toString().slice(-5)}`,
-        timestamp: new Date().toISOString(),
-        panel_id: panelId,
-        channels: {
-          sms: { status: 'DELIVERED', gateway_tx: `TX-NIC-${Math.floor(10000 + Math.random() * 90000)}` },
-          email: { status: 'DELIVERED', receipt: `SMTP-DGMS-${Math.floor(1000 + Math.random() * 9000)}` },
-          siren: { status: 'ACTIVATED', relay_zone: 'ZONE-4-PERIMETER' }
+        context: {
+          panel_id: panelId,
+          focus_node_id: nodeId,
+          displacement: 1.8,
+          resultant_tilt: 0.35,
+          fused_risk_score: 14.5,
+          risk_classification: 'NORMAL',
+          fingerprint_state: 'STABLE'
         },
-        payload_summary: 'Geotechnical emergency alert dispatched successfully'
+        ai_explanation: {
+          geotechnical_explanation: 'All surface nodes across the panel show uniform elastic equilibrium. Strata parameters remain within statutory baseline limits.',
+          primary_contributing_factors: [
+            'All displacement readings below 2.5 mm threshold',
+            'Angular tilt within elastic tolerance (< 0.4°)',
+            'Complete continuity on crack detection circuit'
+          ],
+          recommended_actions: [
+            'Maintain standard automated 6-second wireless mesh telemetry acquisition',
+            'Perform scheduled battery and radio link budget audits'
+          ],
+          dgms_compliance_summary: 'Fully compliant with baseline safety tolerances under CMR 2017.',
+          source: 'Deterministic Geotechnical Decision Support (Simulated Mode)'
+        }
+      };
+    }
+  },
+
+  async syncOfflineBuffer(readings: any[]): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE}/sync/buffer`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          client_id: 'BROWSER-OFFLINE-CLIENT',
+          timestamp: new Date().toISOString(),
+          readings
+        })
+      });
+      return await handleResponse(res);
+    } catch {
+      return {
+        status: 'SYNC_COMPLETE',
+        synced_records_count: readings.length,
+        rejected_count: 0,
+        latest_sync_timestamp: new Date().toISOString(),
+        details: []
       };
     }
   }

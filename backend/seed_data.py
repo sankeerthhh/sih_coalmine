@@ -86,8 +86,8 @@ def seed_database(db: Session):
     )
     db.add(admin)
 
-    # 2. Mine
-    mine = Mine(
+    # 2. Mines (Multi-Mine Enterprise Scalability)
+    mine1 = Mine(
         id="MINE-SECL-KORBA",
         name="Korba Underground Coal Mine (Block-A)",
         organization="Ministry of Coal / South Eastern Coalfields Limited",
@@ -104,27 +104,48 @@ def seed_database(db: Session):
             ]]
         })
     )
-    db.add(mine)
+    mine2 = Mine(
+        id="MINE-SECL-RAIGARH",
+        name="Raigarh Underground Coalfield (Block-B)",
+        organization="Ministry of Coal / South Eastern Coalfields Limited",
+        latitude=21.8974,
+        longitude=83.3950,
+        boundary_geojson=json.dumps({
+            "type": "Polygon",
+            "coordinates": [[
+                [83.3800, 21.8850],
+                [83.4100, 21.8850],
+                [83.4100, 21.9100],
+                [83.3800, 21.9100],
+                [83.3800, 21.8850]
+            ]]
+        })
+    )
+    db.add_all([mine1, mine2])
     db.commit()
 
-    # 3. Underground Panels
+    # 3. Underground Panels across both mines
     panels_data = [
-        {"id": "PANEL-A1", "name": "Panel A1 (Sealed Gaf)", "status": "INACTIVE", "depth": 160.0, "risk": "NORMAL",
+        {"id": "PANEL-A1", "mine_id": "MINE-SECL-KORBA", "name": "Panel A1 (Sealed Gaf)", "status": "INACTIVE", "depth": 160.0, "risk": "NORMAL",
          "coords": [[82.7430, 22.3540], [82.7490, 22.3540], [82.7490, 22.3590], [82.7430, 22.3590], [82.7430, 22.3540]]},
-        {"id": "PANEL-A2", "name": "Panel A2 (Post-Depillared)", "status": "INACTIVE", "depth": 175.0, "risk": "NORMAL",
+        {"id": "PANEL-A2", "mine_id": "MINE-SECL-KORBA", "name": "Panel A2 (Post-Depillared)", "status": "INACTIVE", "depth": 175.0, "risk": "NORMAL",
          "coords": [[82.7500, 22.3540], [82.7560, 22.3540], [82.7560, 22.3590], [82.7500, 22.3590], [82.7500, 22.3540]]},
-        {"id": "PANEL-B1", "name": "Panel B1 (Continuous Miner)", "status": "ACTIVE", "depth": 190.0, "risk": "NORMAL",
+        {"id": "PANEL-B1", "mine_id": "MINE-SECL-KORBA", "name": "Panel B1 (Continuous Miner)", "status": "ACTIVE", "depth": 190.0, "risk": "NORMAL",
          "coords": [[82.7430, 22.3600], [82.7490, 22.3600], [82.7490, 22.3650], [82.7430, 22.3650], [82.7430, 22.3600]]},
-        {"id": "PANEL-B2", "name": "Panel B2 (Development Section)", "status": "ACTIVE", "depth": 185.0, "risk": "NORMAL",
+        {"id": "PANEL-B2", "mine_id": "MINE-SECL-KORBA", "name": "Panel B2 (Development Section)", "status": "ACTIVE", "depth": 185.0, "risk": "NORMAL",
          "coords": [[82.7500, 22.3600], [82.7560, 22.3600], [82.7560, 22.3650], [82.7500, 22.3650], [82.7500, 22.3600]]},
-        {"id": "PANEL-B3", "name": "Panel B3 (Active Depillaring - Core)", "status": "ACTIVE", "depth": 210.0, "risk": "NORMAL",
-         "coords": [[82.7530, 22.3610], [82.7600, 22.3610], [82.7600, 22.3670], [82.7530, 22.3670], [82.7530, 22.3610]]}
+        {"id": "PANEL-B3", "mine_id": "MINE-SECL-KORBA", "name": "Panel B3 (Active Depillaring - Core)", "status": "ACTIVE", "depth": 210.0, "risk": "NORMAL",
+         "coords": [[82.7530, 22.3610], [82.7600, 22.3610], [82.7600, 22.3670], [82.7530, 22.3670], [82.7530, 22.3610]]},
+        {"id": "PANEL-C1", "mine_id": "MINE-SECL-RAIGARH", "name": "Panel C1 (Longwall Retreat)", "status": "ACTIVE", "depth": 240.0, "risk": "NORMAL",
+         "coords": [[83.3850, 21.8900], [83.3950, 21.8900], [83.3950, 21.9000], [83.3850, 21.9000], [83.3850, 21.8900]]},
+        {"id": "PANEL-C2", "mine_id": "MINE-SECL-RAIGARH", "name": "Panel C2 (Continuous Miner Development)", "status": "ACTIVE", "depth": 225.0, "risk": "NORMAL",
+         "coords": [[83.3960, 21.8900], [83.4060, 21.8900], [83.4060, 21.9000], [83.3960, 21.9000], [83.3960, 21.8900]]}
     ]
 
     for p in panels_data:
         panel_obj = Panel(
             id=p["id"],
-            mine_id="MINE-SECL-KORBA",
+            mine_id=p.get("mine_id", "MINE-SECL-KORBA"),
             name=p["name"],
             extraction_status=p["status"],
             depth_meters=p["depth"],
@@ -242,58 +263,59 @@ def seed_database(db: Session):
     db.commit()
 
     # 8. Initial Alerts (DGMS Statutory & Colliery Alerts)
-    a1 = Alert(
-        id="ALT-1000",
-        panel_id="PANEL-B3",
-        node_cluster="Cluster N14-N15",
-        title="Critical Subsidence Warning: Accelerated Surface Micro-Strain",
-        condition_detected="Elevated micro-strain and resultant tilt (2.45°) detected in Panel B3 depillaring boundary. Continuous displacement recorded at 14.8mm.",
-        severity="CRITICAL",
-        status="ACTIVE",
-        ai_risk_score=84.5,
-        measured_tilt=2.45,
-        measured_displacement=14.8,
-        crack_detected=True,
-        recommended_action="Halt depillaring operations in Panel B3. Trigger surface perimeter siren and dispatch emergency bulletins to safety officers.",
-        created_at=now - timedelta(minutes=5)
-    )
-    a2 = Alert(
-        id="ALT-1001",
-        panel_id="PANEL-B3",
-        node_cluster="Cluster N12-N15",
-        title="Subsidence Risk Advisory Notice",
-        condition_detected="Elevated micro-strain detected in Panel B3 depillaring boundary.",
-        severity="WARNING",
-        status="ACKNOWLEDGED",
-        ai_risk_score=42.0,
-        measured_tilt=1.85,
-        measured_displacement=8.2,
-        crack_detected=False,
-        recommended_action="Conduct secondary optical leveling check on Panel B3 surface monuments.",
-        acknowledged_by="R Sai Sankeerth Reddy",
-        acknowledged_at=now - timedelta(hours=1),
-        created_at=now - timedelta(hours=2)
-    )
-    a3 = Alert(
-        id="ALT-1002",
-        panel_id="PANEL-A2",
-        node_cluster="Node N04-N05",
-        title="Post-Depillaring Settlement Baseline Reached",
-        condition_detected="Settlement rate stabilized below 0.05 mm/hr over 48h observation period.",
-        severity="WARNING",
-        status="RESOLVED",
-        ai_risk_score=22.0,
-        measured_tilt=0.45,
-        measured_displacement=3.1,
-        crack_detected=False,
-        recommended_action="Transition Panel A2 to low-frequency quiescent telemetry schedule.",
-        acknowledged_by="Chief Geologist",
-        acknowledged_at=now - timedelta(days=1),
-        resolved_at=now - timedelta(hours=12),
-        created_at=now - timedelta(days=2)
-    )
-    db.add_all([a1, a2, a3])
-    db.commit()
+    if not db.query(Alert).filter(Alert.id == "ALT-1000").first():
+        a1 = Alert(
+            id="ALT-1000",
+            panel_id="PANEL-B3",
+            node_cluster="Cluster N14-N15",
+            title="Critical Subsidence Warning: Accelerated Surface Micro-Strain",
+            condition_detected="Elevated micro-strain and resultant tilt (2.45°) detected in Panel B3 depillaring boundary. Continuous displacement recorded at 14.8mm.",
+            severity="CRITICAL",
+            status="ACTIVE",
+            ai_risk_score=84.5,
+            measured_tilt=2.45,
+            measured_displacement=14.8,
+            crack_detected=True,
+            recommended_action="Halt depillaring operations in Panel B3. Trigger surface perimeter siren and dispatch emergency bulletins to safety officers.",
+            created_at=now - timedelta(minutes=5)
+        )
+        a2 = Alert(
+            id="ALT-1001",
+            panel_id="PANEL-B3",
+            node_cluster="Cluster N12-N15",
+            title="Subsidence Risk Advisory Notice",
+            condition_detected="Elevated micro-strain detected in Panel B3 depillaring boundary.",
+            severity="WARNING",
+            status="ACKNOWLEDGED",
+            ai_risk_score=42.0,
+            measured_tilt=1.85,
+            measured_displacement=8.2,
+            crack_detected=False,
+            recommended_action="Conduct secondary optical leveling check on Panel B3 surface monuments.",
+            acknowledged_by="R Sai Sankeerth Reddy",
+            acknowledged_at=now - timedelta(hours=1),
+            created_at=now - timedelta(hours=2)
+        )
+        a3 = Alert(
+            id="ALT-1002",
+            panel_id="PANEL-A2",
+            node_cluster="Node N04-N05",
+            title="Post-Depillaring Settlement Baseline Reached",
+            condition_detected="Settlement rate stabilized below 0.05 mm/hr over 48h observation period.",
+            severity="WARNING",
+            status="RESOLVED",
+            ai_risk_score=22.0,
+            measured_tilt=0.45,
+            measured_displacement=3.1,
+            crack_detected=False,
+            recommended_action="Transition Panel A2 to low-frequency quiescent telemetry schedule.",
+            acknowledged_by="Chief Geologist",
+            acknowledged_at=now - timedelta(days=1),
+            resolved_at=now - timedelta(hours=12),
+            created_at=now - timedelta(days=2)
+        )
+        db.add_all([a1, a2, a3])
+        db.commit()
 
     print("[SEED] Database seeding complete! Admin created (admin@coal.gov.in / Admin@Coal2026).")
 

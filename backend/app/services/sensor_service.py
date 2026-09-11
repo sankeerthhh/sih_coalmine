@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger("subsidence.sensor_service")
 
 from app.models.sensor import SensorNode
 from app.models.reading import SensorReading
@@ -10,13 +13,16 @@ from app.schemas.sensor import SensorReadingCreate
 from app.ai.validation import SensorValidator
 from app.ai.feature_extraction import feature_extractor
 from app.ai.anomaly_detector import anomaly_detector
+from app.ai.ml_classifier import subsidence_classifier
 from app.ai.risk_scorer import risk_scorer
+from app.ai.subsidence_fingerprint import subsidence_fingerprint_engine
+from app.ai.early_warning_engine import early_warning_engine
 from app.services.alert_service import alert_service
 from app.websocket.connection_manager import connection_manager
 
 class SensorService:
     @staticmethod
-    async def process_telemetry(db: Session, data: SensorReadingCreate) -> Dict[str, Any]:
+    async def process_telemetry(db: Session, data: SensorReadingCreate, source: str = "SIMULATION") -> Dict[str, Any]:
         node = db.query(SensorNode).filter(SensorNode.id == data.node_id).first()
         if not node:
             raise ValueError(f"Sensor node {data.node_id} does not exist in registry.")
@@ -43,6 +49,8 @@ class SensorService:
             raise ValueError(f"Sensor validation failure: {error_msg}")
 
         timestamp = data.timestamp or datetime.now(timezone.utc)
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
 
         # Query neighbor tilts within the same panel for spatial correlation
         neighbor_nodes = (
@@ -83,13 +91,34 @@ class SensorService:
             neighbor_tilts=neighbor_tilts
         )
 
-        # Stage 4: AI Anomaly Detection
+        # Stage 4: AI Anomaly Detection (Isolation Forest)
         anomaly_result = anomaly_detector.detect_anomaly(features)
 
-        # Stage 5 & 6: Risk Scoring & Classification
+        # Stage 5: Supervised ML Risk Classification (Random Forest)
+        ml_result = subsidence_classifier.predict_risk(features)
+
+        # Stage 6: Transparent Risk Fusion Engine (60% Geotechnical + 25% Supervised ML + 15% Anomaly)
         risk_result = risk_scorer.calculate_node_risk(
             features=features,
-            anomaly_score=anomaly_result["anomaly_score"]
+            anomaly_score=anomaly_result["anomaly_score"],
+            ml_prediction=ml_result
+        )
+
+        # Stage 7: Subsidence Fingerprint Engine
+        fingerprint_result = subsidence_fingerprint_engine.evaluate_fingerprint(
+            features=features,
+            anomaly_score=anomaly_result["anomaly_score"],
+            ml_prediction=ml_result
+        )
+
+        # Stage 8: Early Warning Evaluation
+        early_warning_result = early_warning_engine.evaluate_early_warning(
+            panel_id=node.panel_id,
+            fused_risk=risk_result,
+            fingerprint=fingerprint_result,
+            ml_prediction=ml_result,
+            features=features,
+            node_id=node.id
         )
 
         # Save Reading to Database
@@ -180,6 +209,22 @@ class SensorService:
                 recommended_action=action
             )
 
+            if severity == "CRITICAL" and alert_obj:
+                try:
+                    from app.services.notification_service import notification_service
+                    notification_service.dispatch_critical_warning(
+                        panel_id=node.panel_id,
+                        title=f"AUTOMATED SUBSIDENCE EARLY WARNING: {node.panel_id}",
+                        measured_displacement=data.displacement,
+                        measured_tilt=features["resultant_tilt"],
+                        crack_detected=data.crack_detected,
+                        hours_to_breach=14.0,
+                        recommended_action=action,
+                        alert_id=alert_obj.id
+                    )
+                except Exception as notif_err:
+                    logger.warning(f"Automated notification dispatch skipped or failed: {notif_err}")
+
         # Broadcast via WebSocket to all dashboard clients
         ws_payload = {
             "type": "SENSOR_TELEMETRY_UPDATE",
@@ -198,18 +243,39 @@ class SensorService:
                     "battery_level": data.battery_level,
                     "signal_strength": data.signal_strength,
                     "status": node.status,
-                    "anomaly_score": anomaly_result["anomaly_score"]
+                    "anomaly_score": anomaly_result["anomaly_score"],
+                    "source": source
                 },
                 "risk": {
                     "panel_id": node.panel_id,
                     "risk_score": risk_result["risk_score"],
+                    "geotechnical_score": risk_result["geotechnical_heuristic_score"],
+                    "ml_severity_score": risk_result["ml_severity_score"],
                     "risk_classification": classification,
                     "explanation": risk_result["explanation"],
+                    "fusion_weights": risk_result["fusion_weights"],
                     "factors": {
                         "tilt": risk_result["tilt_factor"],
                         "displacement": risk_result["displacement_factor"],
                         "vibration": risk_result["vibration_factor"],
                         "spatial": risk_result["spatial_correlation_factor"]
+                    },
+                    "ml_prediction": {
+                        "predicted_class": ml_result["predicted_class"],
+                        "confidence": ml_result["confidence"],
+                        "probabilities": ml_result["probabilities"],
+                        "model_type": ml_result["model_type"]
+                    },
+                    "fingerprint": {
+                        "state": fingerprint_result["fingerprint_state"],
+                        "summary": fingerprint_result["summary"],
+                        "signals": fingerprint_result["contributing_signals"],
+                        "severity_index": fingerprint_result["severity_index"]
+                    },
+                    "early_warning": {
+                        "level": early_warning_result["warning_level"],
+                        "urgency": early_warning_result["urgency"],
+                        "action": early_warning_result["recommended_action"]
                     }
                 },
                 "alert": {
@@ -225,8 +291,12 @@ class SensorService:
         return {
             "reading_id": reading.id,
             "status": "PROCESSED",
+            "source": source,
             "risk_score": risk_result["risk_score"],
             "classification": classification,
+            "ml_predicted_class": ml_result["predicted_class"],
+            "fingerprint_state": fingerprint_result["fingerprint_state"],
+            "warning_level": early_warning_result["warning_level"],
             "alert_id": alert_obj.id if alert_obj else None
         }
 

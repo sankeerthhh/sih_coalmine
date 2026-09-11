@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { SensorNode, RiskSummary, Alert } from '../types';
-import { MOCK_ALERTS } from '../services/mockData';
+import { SensorNode, RiskSummary, Alert, MineHierarchy, SpatialZone, DataSourceMode } from '../types';
+import { MOCK_ALERTS, MOCK_MINES, MOCK_SPATIAL_ZONES } from '../services/mockData';
+import { api } from '../services/api';
 
 export interface ThresholdConfig {
   warningThreshold: number;
@@ -34,30 +35,50 @@ export interface BroadcastLogItem {
   timestamp: string;
   panel_id: string;
   trigger_type: 'MANUAL_TEST' | 'AUTOMATED_CRITICAL';
-  status: 'DELIVERED' | 'DISPATCHING' | 'FAILED';
+  status: 'DELIVERED' | 'DISPATCHING' | 'FAILED' | 'SENT' | 'SIMULATED' | 'PARTIAL';
   sms_receipt: string;
   dgms_receipt: string;
   siren_status: string;
   recipients_count: number;
   message_preview: string;
+  sms_status?: 'SENT' | 'SIMULATED' | 'FAILED';
+  email_status?: 'SENT' | 'SIMULATED' | 'FAILED';
+  sms_provider?: string;
+  email_provider?: string;
+  provider_notes?: string;
 }
 
 interface SensorState {
   sensors: SensorNode[];
   selectedSensorId: string | null;
+  selectedMineId: string;
   selectedPanelId: string;
+  mines: MineHierarchy[];
+  spatialZones: SpatialZone[];
   riskSummary: RiskSummary | null;
   alerts: Alert[];
   supervisors: Supervisor[];
   broadcastConfig: BroadcastConfig;
   broadcastLogs: BroadcastLogItem[];
   lastUpdateTimestamp: Date;
+  dataSourceMode: DataSourceMode;
+  isHardwareConnected: boolean;
+  lastHardwareTelemetryAt: string | null;
   activeScenario: string;
   thresholds: ThresholdConfig;
+  offlineBufferCount: number;
+  offlineSyncStatus: 'ONLINE' | 'OFFLINE' | 'SYNCING';
+  lastSyncTime: string;
 
+  setDataSourceMode: (mode: DataSourceMode, notifyBackend?: boolean) => Promise<void>;
+  setHardwareStatus: (connected: boolean, lastAt?: string | null) => void;
+  checkHardwareLiveness: () => void;
   setSensors: (sensors: SensorNode[]) => void;
   setSelectedSensorId: (id: string | null) => void;
+  setSelectedMineId: (mineId: string) => void;
   setSelectedPanelId: (panel: string) => void;
+  setMines: (mines: MineHierarchy[]) => void;
+  setSpatialZones: (zones: SpatialZone[]) => void;
   setRiskSummary: (risk: RiskSummary) => void;
   setAlerts: (alerts: Alert[]) => void;
   setActiveScenario: (scenario: string) => void;
@@ -73,6 +94,8 @@ interface SensorState {
   acknowledgeAlertLocal: (id: string, operator?: string) => void;
   resolveAlertLocal: (id: string, operator?: string) => void;
   applyLocalScenario: (scenario: string) => void;
+  bufferReadingOffline: (reading: any) => void;
+  syncOfflineReadings: () => Promise<void>;
 
   updateFromWebSocket: (telemetryData: any) => void;
 }
@@ -127,25 +150,6 @@ function loadStoredBroadcastConfig(): BroadcastConfig {
     const raw = localStorage.getItem('mine_subsidence_broadcast_cfg');
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Auto-migrate if previously saved with legacy or old contacts
-      if (
-        parsed.smsTargetPhone?.includes('98765') || 
-        parsed.smsTargetName?.includes('Sharma') ||
-        parsed.smsTargetName?.includes('Officer') ||
-        parsed.smsTargetName !== 'R Sai Sankeerth Reddy' ||
-        parsed.dgmsRecipientEmail?.includes('bilaspur') ||
-        parsed.dgmsRecipientEmail?.includes('gov.in') ||
-        parsed.dgmsRecipientName?.includes('Sen') ||
-        parsed.dgmsRecipientName?.includes('Directorate') ||
-        parsed.dgmsRecipientName !== 'Dr. Veldandi Aishwarya'
-      ) {
-        parsed.smsTargetName = 'R Sai Sankeerth Reddy';
-        parsed.smsTargetPhone = '+91 94415 62832';
-        parsed.dgmsRecipientName = 'Dr. Veldandi Aishwarya';
-        parsed.dgmsRecipientEmail = 'veldandiaishwarya21@gmail.com';
-        parsed.sirenLocation = 'Korba Block-A Central Control Room';
-        localStorage.setItem('mine_subsidence_broadcast_cfg', JSON.stringify(parsed));
-      }
       return { ...DEFAULT_BROADCAST_CONFIG, ...parsed };
     }
   } catch {
@@ -159,30 +163,9 @@ function loadStoredSupervisors(): Supervisor[] {
     const raw = localStorage.getItem('mine_subsidence_supervisors');
     if (raw) {
       const list: Supervisor[] = JSON.parse(raw);
-      let changed = false;
-      const migrated = list.map(s => {
-        if (s.id === 'SUP-01' && (s.name.includes('Sharma') || s.phone.includes('98765') || s.name !== 'R Sai Sankeerth Reddy')) {
-          changed = true;
-          return {
-            ...s,
-            name: 'R Sai Sankeerth Reddy',
-            phone: '+91 94415 62832'
-          };
-        }
-        if (s.id === 'SUP-02' && (!s.name.includes('Dr.') || s.name.includes('Gupta'))) {
-          changed = true;
-          return {
-            ...s,
-            name: 'Dr. Veldandi Aishwarya',
-            phone: '+91 73961 08692'
-          };
-        }
-        return s;
-      });
-      if (changed) {
-        localStorage.setItem('mine_subsidence_supervisors', JSON.stringify(migrated));
+      if (Array.isArray(list) && list.length > 0) {
+        return list;
       }
-      return migrated;
     }
   } catch {
     // fallback
@@ -200,22 +183,44 @@ function loadStoredThresholds(): ThresholdConfig {
   return DEFAULT_THRESHOLDS;
 }
 
+function loadStoredDataSource(): DataSourceMode {
+  try {
+    const raw = localStorage.getItem('mine_subsidence_data_source');
+    if (raw === 'HARDWARE' || raw === 'SIMULATION') return raw;
+  } catch {
+    // fallback
+  }
+  return 'SIMULATION';
+}
+
 export const useSensorStore = create<SensorState>((set, get) => ({
   sensors: [],
   selectedSensorId: null,
+  selectedMineId: 'MINE-SECL-KORBA',
   selectedPanelId: 'PANEL-B3',
+  mines: [...MOCK_MINES],
+  spatialZones: [...MOCK_SPATIAL_ZONES],
   riskSummary: null,
   alerts: [...MOCK_ALERTS],
   supervisors: loadStoredSupervisors(),
   broadcastConfig: loadStoredBroadcastConfig(),
   broadcastLogs: [],
   lastUpdateTimestamp: new Date(),
+  dataSourceMode: loadStoredDataSource(),
+  isHardwareConnected: false,
+  lastHardwareTelemetryAt: null,
   activeScenario: 'NORMAL',
   thresholds: loadStoredThresholds(),
+  offlineBufferCount: 0,
+  offlineSyncStatus: 'ONLINE',
+  lastSyncTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
 
   setSensors: (sensors) => set({ sensors }),
   setSelectedSensorId: (id) => set({ selectedSensorId: id }),
+  setSelectedMineId: (mineId) => set({ selectedMineId: mineId }),
   setSelectedPanelId: (panel) => set({ selectedPanelId: panel }),
+  setMines: (mines) => set({ mines }),
+  setSpatialZones: (spatialZones) => set({ spatialZones }),
   setRiskSummary: (riskSummary) => set({ riskSummary }),
   setAlerts: (newAlerts) => {
     const current = get().alerts;
@@ -225,6 +230,103 @@ export const useSensorStore = create<SensorState>((set, get) => ({
     set({ alerts: [...activeUnsaved, ...newAlerts] });
   },
   setActiveScenario: (activeScenario) => set({ activeScenario }),
+
+  setDataSourceMode: async (mode: DataSourceMode, notifyBackend: boolean = true) => {
+    const prevMode = get().dataSourceMode;
+    try {
+      localStorage.setItem('mine_subsidence_data_source', mode);
+    } catch {
+      // ignore storage error
+    }
+    set({ dataSourceMode: mode });
+
+    if (mode === 'HARDWARE') {
+      const lastAt = get().lastHardwareTelemetryAt;
+      const isFresh = lastAt ? (Date.now() - new Date(lastAt).getTime() < 15000) : false;
+      if (!isFresh) {
+        set({ isHardwareConnected: false, lastHardwareTelemetryAt: null });
+      }
+      try {
+        const freshSensors = await api.getSensors();
+        if (freshSensors && freshSensors.length > 0) {
+          set({ sensors: freshSensors });
+        }
+      } catch (err) {
+        console.warn('Deferred fetching fresh sensors on mode switch:', err);
+      }
+    }
+
+    // Prevent redundant network roundtrip or infinite loops
+    if (!notifyBackend || prevMode === mode) return;
+
+    try {
+      const res = await api.setSimulatorDataSource(mode);
+      if (res?.hardware_connected !== undefined) {
+        set({
+          isHardwareConnected: res.hardware_connected,
+          lastHardwareTelemetryAt: res.last_hardware_telemetry_at || null
+        });
+      }
+    } catch (e) {
+      console.warn('Backend data source update deferred:', e);
+    }
+  },
+
+  setHardwareStatus: (connected: boolean, lastAt: string | null = null) => {
+    set({ isHardwareConnected: connected, lastHardwareTelemetryAt: lastAt });
+  },
+
+  checkHardwareLiveness: () => {
+    const { isHardwareConnected, lastHardwareTelemetryAt } = get();
+    if (!lastHardwareTelemetryAt) {
+      if (isHardwareConnected) {
+        set({ isHardwareConnected: false });
+      }
+      return;
+    }
+    const ageMs = Date.now() - new Date(lastHardwareTelemetryAt).getTime();
+    if (ageMs > 15000) {
+      if (isHardwareConnected) {
+        set({ isHardwareConnected: false, lastHardwareTelemetryAt: null });
+      }
+    }
+  },
+
+  bufferReadingOffline: (reading) => {
+    try {
+      const stored = localStorage.getItem('mine_subsidence_offline_buffer');
+      const list = stored ? JSON.parse(stored) : [];
+      list.push(reading);
+      localStorage.setItem('mine_subsidence_offline_buffer', JSON.stringify(list));
+      set({
+        offlineBufferCount: list.length,
+        offlineSyncStatus: 'OFFLINE'
+      });
+    } catch {
+      // ignore storage error
+    }
+  },
+
+  syncOfflineReadings: async () => {
+    const count = get().offlineBufferCount;
+    if (count === 0) return;
+    set({ offlineSyncStatus: 'SYNCING' });
+    try {
+      const stored = localStorage.getItem('mine_subsidence_offline_buffer');
+      const list = stored ? JSON.parse(stored) : [];
+      if (list.length > 0) {
+        await api.syncOfflineBuffer(list);
+        localStorage.removeItem('mine_subsidence_offline_buffer');
+      }
+      set({
+        offlineBufferCount: 0,
+        offlineSyncStatus: 'ONLINE',
+        lastSyncTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      });
+    } catch (e) {
+      set({ offlineSyncStatus: 'OFFLINE' });
+    }
+  },
 
   addSensor: (newSensor: SensorNode) => {
     const current = get().sensors;
@@ -318,6 +420,12 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   },
 
   applyLocalScenario: (scenario: string) => {
+    // In LIVE HARDWARE mode, scenarios must NEVER overwrite real telemetry!
+    if (get().dataSourceMode === 'HARDWARE') {
+      console.warn("Demonstration scenarios are disabled while LIVE HARDWARE mode is active.");
+      return;
+    }
+
     const currentSensors = [...get().sensors];
     const nowIso = new Date().toISOString();
 
@@ -568,9 +676,12 @@ export const useSensorStore = create<SensorState>((set, get) => ({
   updateFromWebSocket: (payload) => {
     if (!payload) return;
 
+    const dataSourceMode = get().dataSourceMode;
     const activeScenario = get().activeScenario;
 
     const applyScenarioOverrides = (list: SensorNode[]): SensorNode[] => {
+      // In LIVE HARDWARE mode, never apply simulation scenario overrides!
+      if (dataSourceMode === 'HARDWARE') return list;
       if (!activeScenario || activeScenario === 'NORMAL') return list;
 
       return list.map(s => {
@@ -681,6 +792,21 @@ export const useSensorStore = create<SensorState>((set, get) => ({
     let currentSensors = [...get().sensors];
 
     if (reading) {
+      // Handle data source provenance
+      if (reading.source === 'HARDWARE') {
+        const packetTime = reading.timestamp ? new Date(reading.timestamp).getTime() : Date.now();
+        const isRecent = Math.abs(Date.now() - packetTime) < 15000;
+        if (isRecent) {
+          set({
+            isHardwareConnected: true,
+            lastHardwareTelemetryAt: reading.timestamp || new Date().toISOString()
+          });
+        }
+      } else if (dataSourceMode === 'HARDWARE') {
+        // Discard background simulated ticks when user has switched to LIVE HARDWARE
+        return;
+      }
+
       const idx = currentSensors.findIndex(s => s.id === reading.node_id);
       if (idx !== -1) {
         currentSensors[idx] = {
@@ -702,13 +828,19 @@ export const useSensorStore = create<SensorState>((set, get) => ({
       ...(risk ? {
         riskSummary: {
           current_risk_score: risk.risk_score ?? risk.current_risk_score ?? 14.5,
+          geotechnical_score: risk.geotechnical_score,
+          ml_severity_score: risk.ml_severity_score,
           risk_classification: risk.risk_classification ?? 'NORMAL',
           primary_panel: risk.panel_id ?? 'PANEL-B3',
           affected_cluster: risk.affected_cluster || 'Cluster N12-N16',
           factors: risk.factors || {},
           trend_direction: (risk.risk_score ?? 0) > 50 ? 'INCREASING' : 'STABLE',
           scientific_disclaimer: 'Prototype / Simulated Sensor Data. Decision support platform.',
-          explanation: risk.explanation
+          explanation: risk.explanation,
+          fusion_weights: risk.fusion_weights,
+          ml_prediction: risk.ml_prediction,
+          fingerprint: risk.fingerprint,
+          early_warning: risk.early_warning
         }
       } : {}),
       ...(alert ? {

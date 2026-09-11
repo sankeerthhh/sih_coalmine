@@ -61,7 +61,34 @@ class Settings(BaseSettings):
     DEFAULT_MINE_ID: str = "MINE-SECL-KORBA"
     DEFAULT_PANEL_ID: str = "PANEL-B3"
 
-    model_config = {"case_sensitive": True, "env_file": ".env", "env_file_encoding": "utf-8"}
+    # Multi-Channel Alert & Notification Configuration
+    # SMTP Email Gateway (e.g., Gmail, AWS SES, SendGrid, Outlook, or DGMS Gov relay)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "Mine Subsidence Early Warning System (DGMS/SECL)"
+    SMTP_TLS: bool = True
+    SMTP_SSL: bool = False
+
+    # SMS Gateway Provider (Twilio, Fast2SMS, or generic SMS webhook)
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    TWILIO_FROM_NUMBER: str = ""
+
+    FAST2SMS_API_KEY: str = ""
+    FAST2SMS_SENDER_ID: str = ""
+
+    SMS_WEBHOOK_URL: str = ""
+    SMS_WEBHOOK_TOKEN: str = ""
+
+    model_config = {
+        "case_sensitive": True,
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "ignore"
+    }
 
 
 settings = Settings()

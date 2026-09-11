@@ -45,7 +45,7 @@ export const GisMapPage: React.FC<GisMapPageProps> = ({ onNavigatePage }) => {
             Live GIS Strata Deformation & Risk Mapping
           </h2>
           <p className="text-xs text-slate-500">
-            OpenStreetMap layer displaying 24 LoRa surface sensors and active depillaring boundaries
+            Multi-layer GIS strata mapping (Satellite Imagery, Tactical Dark, Topo, Street) with live LoRa surface sensors, strain links, and AI subsidence basin
           </p>
         </div>
 

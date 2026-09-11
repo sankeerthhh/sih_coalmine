@@ -3,6 +3,7 @@ import { Cpu, ShieldCheck, AlertTriangle, TrendingUp, Info, Activity, Layers, Ar
 import { RiskScoreGauge } from '../components/charts/RiskScoreGauge';
 import { SensorTrendChart } from '../components/charts/SensorTrendChart';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { GeminiAnalysisCard } from '../components/ai/GeminiAnalysisCard';
 import { useSensorStore } from '../store/sensorStore';
 import { api } from '../services/api';
 import { RiskSummary, RiskAssessment } from '../types';
@@ -245,6 +246,13 @@ export const AiRiskPage: React.FC<AiRiskPageProps> = ({ onNavigatePage }) => {
             title="Panel B3 Risk Score Evolution (Past 24 Hours)"
             metric="displacement"
             height={200}
+          />
+
+          {/* Gemini AI Decision Explanation and Advisory */}
+          <GeminiAnalysisCard
+            panelId={selectedPanelId}
+            riskScore={currentScore}
+            riskClassification={classification}
           />
         </div>
       </div>

@@ -10,7 +10,7 @@ interface MeshVisualizerProps {
 }
 
 export const MeshVisualizer: React.FC<MeshVisualizerProps> = ({ meshData, onSelectNode }) => {
-  const { sensors, activeScenario, alerts } = useSensorStore();
+  const { sensors, activeScenario, dataSourceMode } = useSensorStore();
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   if (!meshData || !meshData.nodes || meshData.nodes.length === 0) {
@@ -48,11 +48,11 @@ export const MeshVisualizer: React.FC<MeshVisualizerProps> = ({ meshData, onSele
   });
 
   // Compute synchronized health
-  const hasCritical = isCriticalScenario(activeScenario) || alerts.some(a => a.status === 'ACTIVE' && a.severity === 'CRITICAL') || sensors.some(s => getCalculatedNodeStatus(s, activeScenario, alerts) === 'CRITICAL');
-  const hasWarning = isWarningScenario(activeScenario) || alerts.some(a => a.status === 'ACTIVE' && (a.severity === 'WARNING' || a.severity === 'HIGH')) || sensors.some(s => getCalculatedNodeStatus(s, activeScenario, alerts) === 'WARNING');
+  const hasCritical = (dataSourceMode === 'SIMULATION' && isCriticalScenario(activeScenario)) || sensors.some(s => getCalculatedNodeStatus(s, activeScenario, dataSourceMode) === 'CRITICAL');
+  const hasWarning = (dataSourceMode === 'SIMULATION' && isWarningScenario(activeScenario)) || sensors.some(s => getCalculatedNodeStatus(s, activeScenario, dataSourceMode) === 'WARNING');
   const activeMeshHealth = hasCritical ? 'CRITICAL' : hasWarning ? 'DEGRADED' : meshData.network_health;
   const calculatedOnlineCount = sensors.length > 0 
-    ? sensors.filter(s => getCalculatedNodeStatus(s, activeScenario, alerts) !== 'OFFLINE').length 
+    ? sensors.filter(s => getCalculatedNodeStatus(s, activeScenario, dataSourceMode) !== 'OFFLINE').length 
     : meshData.online_nodes;
 
   return (
@@ -146,7 +146,7 @@ export const MeshVisualizer: React.FC<MeshVisualizerProps> = ({ meshData, onSele
             if (!coord) return null;
 
             const storeSensor = sensors.find(s => s.id === node.id);
-            const calculatedStatus = storeSensor ? getCalculatedNodeStatus(storeSensor, activeScenario, alerts) : node.status;
+            const calculatedStatus = storeSensor ? getCalculatedNodeStatus(storeSensor, activeScenario, dataSourceMode) : node.status;
 
             const isGw = node.is_gateway;
             const isOffline = calculatedStatus === 'OFFLINE';

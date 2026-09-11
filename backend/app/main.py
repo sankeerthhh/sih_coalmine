@@ -25,7 +25,7 @@ async def telemetry_background_loop():
     while True:
         try:
             await asyncio.sleep(10)
-            if simulator_service.is_running:
+            if simulator_service.data_source == "SIMULATION" and simulator_service.is_running:
                 await simulator_service.execute_tick()
         except asyncio.CancelledError:
             break

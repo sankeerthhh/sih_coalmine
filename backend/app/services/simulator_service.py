@@ -1,7 +1,7 @@
 import asyncio
 import random
 from datetime import datetime, timezone
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -16,24 +16,76 @@ from app.websocket.connection_manager import connection_manager
 
 class SimulatorService:
     def __init__(self):
+        # Single Source of Truth for Data Mode: "SIMULATION" | "HARDWARE"
+        self.data_source: str = "SIMULATION"
         self.current_scenario: str = "NORMAL"
         self.is_running: bool = False
         self.tick_count: int = 0
         self.affected_nodes: List[str] = ["N12", "N13", "N14", "N15", "N16"]
         self._task: asyncio.Task = None
+        self.last_hardware_telemetry_at: Optional[datetime] = None
+        self.hardware_nodes_online: set = set()
+
+    def record_hardware_telemetry(self, node_id: str):
+        """Records reception of real physical sensor telemetry from gateway bridge."""
+        self.last_hardware_telemetry_at = datetime.now(timezone.utc)
+        self.hardware_nodes_online.add(node_id)
+
+    def clear_hardware_telemetry(self):
+        """Clears recorded hardware telemetry state so dashboard reflects disconnected hardware."""
+        self.last_hardware_telemetry_at = None
+        self.hardware_nodes_online.clear()
 
     def get_status(self) -> Dict[str, Any]:
+        hw_connected = False
+        if self.last_hardware_telemetry_at:
+            age = (datetime.now(timezone.utc) - self.last_hardware_telemetry_at).total_seconds()
+            hw_connected = age < 15.0  # Must have active telemetry within last 15 seconds
+
         return {
-            "is_running": self.is_running,
+            "data_source": self.data_source,
+            "is_running": self.is_running if self.data_source == "SIMULATION" else False,
             "current_scenario": self.current_scenario,
-            "active_affected_nodes": self.affected_nodes if self.current_scenario in ["EARLY_WARNING", "SUBSIDENCE_CRITICAL", "SENSOR_FAILURE"] else [],
-            "tick_count": self.tick_count
+            "active_affected_nodes": self.affected_nodes if (self.data_source == "SIMULATION" and self.current_scenario in ["EARLY_WARNING", "SUBSIDENCE_CRITICAL", "SENSOR_FAILURE"]) else [],
+            "tick_count": self.tick_count,
+            "hardware_connected": hw_connected,
+            "last_hardware_telemetry_at": self.last_hardware_telemetry_at.isoformat() if (hw_connected and self.last_hardware_telemetry_at) else None,
+            "hardware_nodes_count": len(self.hardware_nodes_online) if hw_connected else 0
         }
 
+    async def set_data_source(self, mode: str) -> Dict[str, Any]:
+        mode_upper = mode.upper().strip()
+        if mode_upper not in ["SIMULATION", "HARDWARE"]:
+            raise ValueError("Invalid data source mode. Must be 'SIMULATION' or 'HARDWARE'.")
+        
+        changed = (self.data_source != mode_upper)
+        self.data_source = mode_upper
+        if self.data_source == "HARDWARE":
+            self.is_running = False
+            # Check if there is actual fresh telemetry; if stale or none, clear it
+            if self.last_hardware_telemetry_at:
+                age = (datetime.now(timezone.utc) - self.last_hardware_telemetry_at).total_seconds()
+                if age >= 15.0:
+                    self.clear_hardware_telemetry()
+        else:
+            self.is_running = True
+
+        status = self.get_status()
+        if changed:
+            await connection_manager.broadcast({
+                "type": "DATA_SOURCE_MODE_CHANGED",
+                "data": status
+            })
+        return status
+
     async def set_scenario(self, scenario: str, speed: float = 1.0) -> Dict[str, Any]:
+        if self.data_source == "HARDWARE":
+            raise ValueError("Cannot trigger demonstration scenarios while in LIVE HARDWARE mode. Switch data source to SIMULATION to run demo scenarios.")
+
         self.current_scenario = scenario.upper()
         self.is_running = True
         self.tick_count = 0
+
 
         db = SessionLocal()
         try:
@@ -58,6 +110,7 @@ class SimulatorService:
                     l.link_quality_lqi = random.randint(200, 240)
 
                 db.commit()
+                self.clear_hardware_telemetry()
 
             elif self.current_scenario == "SENSOR_FAILURE":
                 # Specifically drop node N14
@@ -94,6 +147,9 @@ class SimulatorService:
         return self.get_status()
 
     async def execute_tick(self):
+        if self.data_source == "HARDWARE" or not self.is_running:
+            return
+
         self.tick_count += 1
         db = SessionLocal()
         try:
@@ -146,7 +202,7 @@ class SimulatorService:
                 )
 
                 try:
-                    await sensor_service.process_telemetry(db, telemetry)
+                    await sensor_service.process_telemetry(db, telemetry, source="SIMULATION")
                 except Exception:
                     db.rollback()
                 

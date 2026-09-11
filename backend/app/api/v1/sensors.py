@@ -8,6 +8,7 @@ from app.models.sensor import SensorNode
 from app.models.reading import SensorReading
 from app.schemas.sensor import SensorNodeResponse, SensorReadingResponse, SensorReadingCreate
 from app.services.sensor_service import sensor_service
+from app.services.simulator_service import simulator_service
 
 router = APIRouter(prefix="/sensors", tags=["Sensors"])
 
@@ -104,7 +105,9 @@ def get_sensor_readings(
 @router.post("/ingest")
 async def ingest_sensor_telemetry(payload: SensorReadingCreate, db: Session = Depends(get_db)):
     try:
-        result = await sensor_service.process_telemetry(db, payload)
+        # Record hardware telemetry arrival and active node
+        simulator_service.record_hardware_telemetry(payload.node_id)
+        result = await sensor_service.process_telemetry(db, payload, source="HARDWARE")
         return result
     except ValueError as val_err:
         raise HTTPException(status_code=422, detail=str(val_err))

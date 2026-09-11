@@ -20,8 +20,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
     addSupervisor, 
     updateSupervisor, 
     removeSupervisor,
-    activeScenario,
-    alerts
+    activeScenario
   } = useSensorStore();
 
   const [warningThreshold, setWarningThreshold] = useState(thresholds.warningThreshold);
@@ -445,7 +444,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigatePage }) =>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
           {sensors.map((sensor) => {
-            const calculatedStatus = getCalculatedNodeStatus(sensor, activeScenario, alerts);
+            const calculatedStatus = getCalculatedNodeStatus(sensor, activeScenario);
             return (
               <div
                 key={sensor.id}

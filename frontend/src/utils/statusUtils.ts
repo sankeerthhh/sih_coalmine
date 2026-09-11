@@ -1,4 +1,4 @@
-import { SensorNode, SensorReading, Alert } from '../types';
+import { SensorNode, SensorReading } from '../types';
 
 /**
  * Standardized status evaluation across all views (GIS Map, Sensor Network, Dashboard, Drawer, Reports).
@@ -25,87 +25,27 @@ export function calculateResultantTilt(reading?: SensorReading | null): number {
   return Number(Math.sqrt(tx * tx + ty * ty).toFixed(2));
 }
 
-export function isNodeAffectedByAlert(node: SensorNode, alert: Alert): boolean {
-  if (!alert || alert.status !== 'ACTIVE') return false;
-
-  const nid = node.id.toUpperCase();
-  const nodeNum = parseInt(nid.replace(/\D/g, ''), 10);
-  const cluster = (alert.node_cluster || '').toUpperCase();
-  const title = (alert.title || '').toUpperCase();
-  const desc = (alert.condition_detected || '').toUpperCase();
-
-  // 1. Direct word-boundary match: e.g. "N14", "Cluster N14-N15", "Node N14"
-  const idRegex = new RegExp(`\\b${nid}\\b`, 'i');
-  if (idRegex.test(cluster) || idRegex.test(title) || idRegex.test(desc)) {
-    return true;
-  }
-
-  // 2. Numeric range match: e.g. "N12-N15", "N14-N15", "N04-N05"
-  const rangeRegex = /N?(\d{1,2})\s*[-–—]\s*N?(\d{1,2})/g;
-  let match;
-  while ((match = rangeRegex.exec(cluster)) !== null) {
-    const start = parseInt(match[1], 10);
-    const end = parseInt(match[2], 10);
-    if (!isNaN(start) && !isNaN(end) && !isNaN(nodeNum)) {
-      const min = Math.min(start, end);
-      const max = Math.max(start, end);
-      if (nodeNum >= min && nodeNum <= max) {
-        return true;
-      }
-    }
-  }
-
-  // 3. Panel-level matching if no specific node identifiers are mentioned
-  const clusterHasSpecificNode = /N\d{1,2}/.test(cluster) || /N\d{1,2}/.test(title);
-  if (!clusterHasSpecificNode && alert.panel_id && node.panel_id) {
-    const pAlert = alert.panel_id.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const pNode = node.panel_id.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (pAlert === pNode) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-export function getActiveAlertForNode(node: SensorNode, alerts?: Alert[]): Alert | null {
-  if (!alerts || alerts.length === 0) return null;
-  const activeAlerts = alerts.filter(a => a.status === 'ACTIVE');
-  // Highest priority to critical alerts
-  const crit = activeAlerts.find(a => a.severity === 'CRITICAL' && isNodeAffectedByAlert(node, a));
-  if (crit) return crit;
-  const warn = activeAlerts.find(a => (a.severity === 'WARNING' || a.severity === 'HIGH') && isNodeAffectedByAlert(node, a));
-  return warn || null;
-}
-
 export function getCalculatedNodeStatus(
   node: SensorNode,
   activeScenario?: string,
-  alerts?: Alert[]
+  dataSourceMode: string = 'SIMULATION'
 ): 'ONLINE' | 'WARNING' | 'CRITICAL' | 'OFFLINE' {
   // 1. Explicit offline state or dead battery
-  if (activeScenario === 'SENSOR_FAILURE' && node.id === 'N14') return 'OFFLINE';
   if (node.status === 'OFFLINE' || node.battery_level <= 0) return 'OFFLINE';
 
-  // 2. Active alerts synchronization (Highest priority operational signal)
-  if (alerts && alerts.length > 0) {
-    const activeAlert = getActiveAlertForNode(node, alerts);
-    if (activeAlert) {
-      if (activeAlert.severity === 'CRITICAL') return 'CRITICAL';
-      if (activeAlert.severity === 'WARNING' || activeAlert.severity === 'HIGH') return 'WARNING';
+  // 2. Demonstration scenarios active overrides (ONLY active in SIMULATION mode)
+  if (dataSourceMode === 'SIMULATION') {
+    if (activeScenario === 'SENSOR_FAILURE' && node.id === 'N14') return 'OFFLINE';
+    if (isCriticalScenario(activeScenario)) {
+      if (['N14', 'N15'].includes(node.id)) return 'CRITICAL';
+      if (['N12', 'N13', 'N16'].includes(node.id)) return 'WARNING';
+    }
+    if (isWarningScenario(activeScenario)) {
+      if (['N12', 'N13', 'N14', 'N15'].includes(node.id)) return 'WARNING';
     }
   }
 
-  // 3. Demonstration scenarios active overrides
-  if (isCriticalScenario(activeScenario)) {
-    if (['N14', 'N15'].includes(node.id)) return 'CRITICAL';
-    if (['N12', 'N13', 'N16'].includes(node.id)) return 'WARNING';
-  }
-  if (isWarningScenario(activeScenario)) {
-    if (['N12', 'N13', 'N14', 'N15'].includes(node.id)) return 'WARNING';
-  }
-
-  // 4. Telemetry parameter threshold evaluation
+  // 3. Telemetry parameter threshold evaluation
   const r = node.latest_reading;
   if (r) {
     const tilt = calculateResultantTilt(r);

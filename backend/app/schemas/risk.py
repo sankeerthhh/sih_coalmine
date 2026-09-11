@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from pydantic import BaseModel, ConfigDict
 
 
@@ -28,3 +28,11 @@ class RiskSummaryResponse(BaseModel):
     trend_direction: str  # STABLE, INCREASING, DECREASING
     scientific_disclaimer: str
     latest_assessment: Optional[RiskAssessmentResponse] = None
+    explanation: Optional[str] = None
+    geotechnical_score: Optional[float] = None
+    ml_severity_score: Optional[float] = None
+    fusion_weights: Optional[Dict[str, float]] = None
+    ml_prediction: Optional[Dict[str, Any]] = None
+    fingerprint: Optional[Dict[str, Any]] = None
+    early_warning: Optional[Dict[str, Any]] = None
+

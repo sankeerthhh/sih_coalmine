@@ -14,6 +14,11 @@ export function useWebSocket(onEvent?: (event: WebSocketEvent) => void) {
   const wsRef = useRef<WebSocket | null>(null);
   const retryCountRef = useRef<number>(0);
   const pollingIntervalRef = useRef<any>(null);
+  const onEventRef = useRef(onEvent);
+
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
 
   const startHttpPolling = useCallback(() => {
     if (pollingIntervalRef.current) return;
@@ -26,8 +31,8 @@ export function useWebSocket(onEvent?: (event: WebSocketEvent) => void) {
         if (!token) return; // Only poll when logged in
         
         const sensors = await api.getSensors();
-        if (sensors && sensors.length > 0 && onEvent) {
-          onEvent({
+        if (sensors && sensors.length > 0 && onEventRef.current) {
+          onEventRef.current({
             type: 'SENSOR_TELEMETRY_UPDATE',
             data: sensors
           });
@@ -39,7 +44,7 @@ export function useWebSocket(onEvent?: (event: WebSocketEvent) => void) {
     };
 
     pollingIntervalRef.current = setInterval(poll, 6000);
-  }, [onEvent]);
+  }, []);
 
   const connect = useCallback(() => {
     // Only attempt WebSocket if we haven't failed repeatedly (e.g. serverless Vercel)
@@ -67,8 +72,8 @@ export function useWebSocket(onEvent?: (event: WebSocketEvent) => void) {
         try {
           const parsed: WebSocketEvent = JSON.parse(event.data);
           setLastUpdate(new Date());
-          if (onEvent) {
-            onEvent(parsed);
+          if (onEventRef.current) {
+            onEventRef.current(parsed);
           }
         } catch {
           // ignore non-json messages like pong
@@ -92,7 +97,7 @@ export function useWebSocket(onEvent?: (event: WebSocketEvent) => void) {
       retryCountRef.current += 1;
       startHttpPolling();
     }
-  }, [onEvent, startHttpPolling]);
+  }, [startHttpPolling]);
 
   useEffect(() => {
     connect();

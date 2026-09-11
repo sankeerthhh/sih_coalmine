@@ -35,8 +35,16 @@ class SimulatorScenarioRequest(BaseModel):
     scenario: str # NORMAL, EARLY_WARNING, SUBSIDENCE_CRITICAL, SENSOR_FAILURE, NETWORK_FAILURE, RESET
     speed: Optional[float] = 1.0
 
+class DataSourceModeRequest(BaseModel):
+    data_source: str # "SIMULATION" | "HARDWARE"
+
 class SimulatorStatusResponse(BaseModel):
+    data_source: str = "SIMULATION" # "SIMULATION" | "HARDWARE"
     is_running: bool
     current_scenario: str
     active_affected_nodes: List[str]
     tick_count: int
+    hardware_connected: bool = False
+    last_hardware_telemetry_at: Optional[str] = None
+    hardware_nodes_count: int = 0
+

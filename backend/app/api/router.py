@@ -9,7 +9,10 @@ from app.api.v1 import (
     mesh,
     system,
     admin,
-    simulator
+    simulator,
+    ai_explanation,
+    mines,
+    sync
 )
 
 api_router = APIRouter()
@@ -24,3 +27,7 @@ api_router.include_router(mesh.router)
 api_router.include_router(system.router)
 api_router.include_router(admin.router)
 api_router.include_router(simulator.router)
+api_router.include_router(ai_explanation.router)
+api_router.include_router(mines.router)
+api_router.include_router(sync.router)
+

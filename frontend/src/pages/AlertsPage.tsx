@@ -107,36 +107,53 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
     setTimeout(() => setDispatchStep(4), 1300); // sounding siren
 
     try {
-      const apiRes = await api.triggerTestBroadcast(selectedPanelId || 'PANEL-B3');
-      const alertId = `ALT-${Date.now().toString().slice(-4)}`;
-      const newEmergencyAlert: Alert = {
-        id: alertId,
-        panel_id: selectedPanelId || 'PANEL-B3',
-        node_cluster: 'Cluster N14-N15',
-        title: 'Emergency Drill: Multi-Channel Broadcast Dispatched',
-        condition_detected: `Direct telemetry emergency broadcast triggered to ${broadcastConfig.smsTargetName} (${broadcastConfig.smsTargetPhone}) & ${broadcastConfig.dgmsRecipientName} (${broadcastConfig.dgmsRecipientEmail}). Ground displacement 14.8mm simulated.`,
-        severity: 'CRITICAL',
-        status: 'ACTIVE',
-        ai_risk_score: 88.0,
-        measured_tilt: 2.35,
-        measured_displacement: 14.8,
-        crack_detected: true,
-        recommended_action: 'Surface perimeter evacuated within 150m. Verify field receiver acknowledgments and siren operation.',
-        created_at: new Date().toISOString()
-      };
-      setAlerts([newEmergencyAlert, ...alerts.filter(a => a.id !== alertId)]);
+      const apiRes = await api.triggerTestBroadcast(selectedPanelId || 'PANEL-B3', broadcastConfig);
+
+      // Refresh alerts from backend so database drill alert is immediately visible
+      try {
+        const freshAlerts = await api.getAlerts();
+        setAlerts(freshAlerts);
+      } catch {
+        // Fallback local addition if network glitch
+        if (apiRes?.alert_id) {
+          const newEmergencyAlert: Alert = {
+            id: apiRes.alert_id,
+            panel_id: selectedPanelId || 'PANEL-B3',
+            node_cluster: `Cluster N14-N15 (${selectedPanelId || 'PANEL-B3'})`,
+            title: 'EMERGENCY SUBSIDENCE DRILL: Accelerated Displacement',
+            condition_detected: `Direct telemetry emergency broadcast drill triggered to ${broadcastConfig.smsTargetName} (${broadcastConfig.smsTargetPhone}) & ${broadcastConfig.dgmsRecipientName} (${broadcastConfig.dgmsRecipientEmail}). Ground displacement 14.8mm simulated.`,
+            severity: 'CRITICAL',
+            status: 'ACTIVE',
+            ai_risk_score: 88.0,
+            measured_tilt: 2.3,
+            measured_displacement: 14.8,
+            crack_detected: true,
+            recommended_action: 'Surface perimeter evacuated within 150m. Verify field receiver acknowledgments and siren operation.',
+            created_at: new Date().toISOString()
+          };
+          setAlerts([newEmergencyAlert, ...alerts.filter(a => a.id !== apiRes.alert_id)]);
+        }
+      }
+
+      const smsChannel = apiRes?.channels?.sms;
+      const emailChannel = apiRes?.channels?.email;
 
       const logRecord: BroadcastLogItem = {
-        id: `TX-${Date.now().toString().slice(-6)}`,
+        id: apiRes?.dispatch_id || `TX-${Date.now().toString().slice(-6)}`,
         timestamp: new Date().toLocaleTimeString(),
         panel_id: selectedPanelId || 'PANEL-B3',
         trigger_type: 'MANUAL_TEST',
-        status: 'DELIVERED',
-        sms_receipt: apiRes?.channels?.sms?.gateway_tx || `TX-NIC-${Math.floor(10000 + Math.random() * 90000)}`,
-        dgms_receipt: apiRes?.channels?.email?.receipt || `SMTP-DGMS-${Math.floor(1000 + Math.random() * 9000)}`,
+        status: (apiRes?.status || 'SIMULATED') as any,
+        sms_receipt: smsChannel?.receipt || (smsChannel?.status === 'SIMULATED' ? 'SIMULATED (No Gateway Configured)' : (smsChannel?.error || 'N/A')),
+        dgms_receipt: emailChannel?.receipt || (emailChannel?.status === 'SIMULATED' ? 'SIMULATED (No SMTP Configured)' : (emailChannel?.error || 'N/A')),
         siren_status: 'ACTIVE (120dB Pulse - Zone 4 Perimeter)',
-        recipients_count: 3 + supervisors.length,
-        message_preview: `[DGMS URGENT]: Surface strata subsidence drill alert. Displacement 14.8mm recorded over Panel B3, Korba Colliery. Evacuate surface perimeter immediately.`
+        recipients_count: apiRes?.recipients_count || (1 + supervisors.length),
+        message_preview: `[MINISTRY OF COAL ALERT - URGENT] Mine: Korba Block-A (${selectedPanelId || 'PANEL-B3'})\nGround Displacement: 14.8mm | Tilt: 2.3deg\nTension Crack: CONFIRMED BREAK\nACTION: Halt extraction. Evacuate surface perimeter within 150m.`,
+        sms_status: smsChannel?.status || 'SIMULATED',
+        email_status: emailChannel?.status || 'SIMULATED',
+        sms_provider: smsChannel?.provider || 'NONE',
+        email_provider: emailChannel?.provider || 'NONE',
+        provider_notes: apiRes?.config_status?.setup_notes || ''
       };
 
       setTimeout(() => {
@@ -144,9 +161,28 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
         setCurrentDispatchResult(logRecord);
         recordBroadcastLog(logRecord);
       }, 1650);
-    } catch (err) {
-      console.error(err);
-      setTimeout(() => setDispatchStep(5), 1650);
+    } catch (err: any) {
+      console.error("Broadcast test failed:", err);
+      const errLog: BroadcastLogItem = {
+        id: `TX-ERR-${Date.now().toString().slice(-4)}`,
+        timestamp: new Date().toLocaleTimeString(),
+        panel_id: selectedPanelId || 'PANEL-B3',
+        trigger_type: 'MANUAL_TEST',
+        status: 'FAILED',
+        sms_receipt: 'FAILED - Backend API Error',
+        dgms_receipt: 'FAILED - Backend API Error',
+        siren_status: 'FAILED',
+        recipients_count: 0,
+        message_preview: `API Dispatch Error: ${err?.message || 'Server communication failure'}`,
+        sms_status: 'FAILED',
+        email_status: 'FAILED',
+        provider_notes: err?.message || 'Check backend server logs'
+      };
+      setTimeout(() => {
+        setDispatchStep(5);
+        setCurrentDispatchResult(errLog);
+        recordBroadcastLog(errLog);
+      }, 1650);
     }
   };
 
@@ -342,14 +378,17 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
                 {broadcastLogs.map((log) => (
                   <div key={log.id} className="flex flex-wrap items-center justify-between border-b border-slate-800/80 pb-1.5 text-slate-300">
                     <div className="flex items-center gap-2">
-                      <span className="text-emerald-400 font-bold">[{log.status}]</span>
+                      <span className={`font-bold ${
+                        log.status === 'SENT' || log.status === 'DELIVERED' ? 'text-emerald-400' :
+                        log.status === 'FAILED' ? 'text-red-400' : 'text-amber-400'
+                      }`}>[{log.status}]</span>
                       <span className="text-white font-bold">{log.id}</span>
                       <span className="text-slate-400">{log.timestamp}</span>
                       <span className="text-blue-300 font-sans font-semibold">({log.panel_id})</span>
                     </div>
                     <div className="text-[10px] text-slate-400 flex items-center gap-3">
-                      <span>SMS: {log.sms_receipt}</span>
-                      <span>DGMS: {log.dgms_receipt}</span>
+                      <span>SMS: <strong className="text-slate-300">{log.sms_receipt}</strong></span>
+                      <span>Email: <strong className="text-slate-300">{log.dgms_receipt}</strong></span>
                       <span className="text-amber-300">{log.siren_status}</span>
                     </div>
                   </div>
@@ -583,45 +622,89 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
                   </div>
                 </div>
 
-                {/* Step 2: NIC SMS Broadcast */}
+                {/* Step 2: SMS Gateway */}
                 <div className={`flex items-start gap-3 p-2.5 rounded border transition ${
-                  dispatchStep >= 2 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-400'
+                  dispatchStep >= 2 
+                    ? (currentDispatchResult?.sms_status === 'FAILED' ? 'bg-red-50/70 border-red-200 text-red-900' : 'bg-emerald-50/70 border-emerald-200 text-emerald-900')
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
                 }`}>
                   <div className="mt-0.5">
                     {dispatchStep >= 3 ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      currentDispatchResult?.sms_status === 'FAILED' ? (
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      )
                     ) : dispatchStep === 2 ? (
                       <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
                     ) : (
                       <span className="w-4 h-4 rounded-full border border-slate-300 block" />
                     )}
                   </div>
-                  <div>
-                    <div className="font-bold text-xs">2. NIC SMS Gateway API Broadcast</div>
-                    <div className="text-[11px] text-slate-600">
-                      Dispatched to <span className="font-bold">{broadcastConfig.smsTargetName}</span> ({broadcastConfig.smsTargetPhone}) via {broadcastConfig.smsGatewayRoute}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-xs flex items-center justify-between">
+                      <span>2. SMS Gateway Direct Telecommunication Broadcast</span>
+                      {dispatchStep >= 3 && currentDispatchResult && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                          currentDispatchResult.sms_status === 'SENT' ? 'bg-emerald-100 text-emerald-800' :
+                          currentDispatchResult.sms_status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          [{currentDispatchResult.sms_status || 'SIMULATED'}]
+                        </span>
+                      )}
                     </div>
+                    <div className="text-[11px] text-slate-600 mt-0.5">
+                      Target: <span className="font-bold">{broadcastConfig.smsTargetName}</span> ({broadcastConfig.smsTargetPhone}) &bull; Route: {broadcastConfig.smsGatewayRoute}
+                    </div>
+                    {dispatchStep >= 3 && currentDispatchResult?.sms_receipt && (
+                      <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate">
+                        Receipt: {currentDispatchResult.sms_receipt}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Step 3: DGMS Regional Email */}
                 <div className={`flex items-start gap-3 p-2.5 rounded border transition ${
-                  dispatchStep >= 3 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-400'
+                  dispatchStep >= 3 
+                    ? (currentDispatchResult?.email_status === 'FAILED' ? 'bg-red-50/70 border-red-200 text-red-900' : 'bg-emerald-50/70 border-emerald-200 text-emerald-900')
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
                 }`}>
                   <div className="mt-0.5">
                     {dispatchStep >= 4 ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      currentDispatchResult?.email_status === 'FAILED' ? (
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      )
                     ) : dispatchStep === 3 ? (
                       <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
                     ) : (
                       <span className="w-4 h-4 rounded-full border border-slate-300 block" />
                     )}
                   </div>
-                  <div>
-                    <div className="font-bold text-xs">3. DGMS Statutory Regional Circle Bulletin</div>
-                    <div className="text-[11px] text-slate-600">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-xs flex items-center justify-between">
+                      <span>3. DGMS Statutory Regional Circle Bulletin (Email)</span>
+                      {dispatchStep >= 4 && currentDispatchResult && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                          currentDispatchResult.email_status === 'SENT' ? 'bg-emerald-100 text-emerald-800' :
+                          currentDispatchResult.email_status === 'FAILED' ? 'bg-red-100 text-red-800' :
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          [{currentDispatchResult.email_status || 'SIMULATED'}]
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-slate-600 mt-0.5">
                       Transmitted CMR-2017 Form IV incident brief to <span className="font-bold">{broadcastConfig.dgmsRecipientEmail}</span>
                     </div>
+                    {dispatchStep >= 4 && currentDispatchResult?.dgms_receipt && (
+                      <div className="text-[10px] font-mono text-slate-500 mt-0.5 truncate">
+                        Receipt: {currentDispatchResult.dgms_receipt}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -650,25 +733,88 @@ export const AlertsPage: React.FC<AlertsPageProps> = ({ onNavigatePage }) => {
               {/* Complete Confirmation & Payload Preview */}
               {dispatchStep === 5 && currentDispatchResult && (
                 <div className="space-y-3 animate-in fade-in duration-200">
-                  <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 rounded-lg flex items-center justify-between">
-                    <div className="flex items-center gap-2 font-bold text-xs">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>All Emergency Channels Successfully Triggered & Acknowledged!</span>
+                  {currentDispatchResult.status === 'SENT' ? (
+                    <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-bold text-xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>All Emergency Channels Successfully Delivered & Confirmed by Providers!</span>
+                      </div>
+                      <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                        {currentDispatchResult.id}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-mono bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
-                      {currentDispatchResult.id}
-                    </span>
+                  ) : currentDispatchResult.status === 'FAILED' ? (
+                    <div className="bg-red-50 border border-red-300 text-red-900 p-3 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-bold text-xs">
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                        <span>Emergency Alert Dispatch Encountered Provider Error</span>
+                      </div>
+                      <span className="text-[10px] font-mono bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold">
+                        {currentDispatchResult.id}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50 border border-amber-300 text-amber-900 p-3 rounded-lg space-y-1">
+                      <div className="flex items-center justify-between font-bold text-xs">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>Drill Dispatched in SIMULATED Mode (Provider Credentials Not Configured)</span>
+                        </div>
+                        <span className="text-[10px] font-mono bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">
+                          {currentDispatchResult.id}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-amber-800">
+                        {currentDispatchResult.provider_notes || 'To enable live SMS & Email delivery, add SMTP_HOST and TWILIO_ACCOUNT_SID / FAST2SMS_API_KEY in backend/.env.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Channel Delivery Status Summary Table */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[11px] space-y-2">
+                    <div className="font-bold text-slate-800 text-xs">Multi-Channel Provider Report:</div>
+                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                      <div className="bg-white p-2 rounded border border-slate-200">
+                        <div className="font-bold text-slate-700 flex items-center justify-between">
+                          <span>SMS Channel</span>
+                          <span className={`px-1.5 py-0.5 rounded font-mono font-bold ${
+                            currentDispatchResult.sms_status === 'SENT' ? 'bg-emerald-100 text-emerald-800' :
+                            currentDispatchResult.sms_status === 'FAILED' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                          }`}>[{currentDispatchResult.sms_status || 'SIMULATED'}]</span>
+                        </div>
+                        <div className="text-slate-500 mt-1 truncate">Provider: {currentDispatchResult.sms_provider || 'NONE'}</div>
+                        <div className="text-slate-500 truncate" title={currentDispatchResult.sms_receipt}>
+                          Ref: {currentDispatchResult.sms_receipt || 'None'}
+                        </div>
+                      </div>
+                      <div className="bg-white p-2 rounded border border-slate-200">
+                        <div className="font-bold text-slate-700 flex items-center justify-between">
+                          <span>Email Channel</span>
+                          <span className={`px-1.5 py-0.5 rounded font-mono font-bold ${
+                            currentDispatchResult.email_status === 'SENT' ? 'bg-emerald-100 text-emerald-800' :
+                            currentDispatchResult.email_status === 'FAILED' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                          }`}>[{currentDispatchResult.email_status || 'SIMULATED'}]</span>
+                        </div>
+                        <div className="text-slate-500 mt-1 truncate">Provider: {currentDispatchResult.email_provider || 'NONE'}</div>
+                        <div className="text-slate-500 truncate" title={currentDispatchResult.dgms_receipt}>
+                          Ref: {currentDispatchResult.dgms_receipt || 'None'}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* SMS Payload Display */}
                   <div className="bg-slate-900 text-slate-200 p-3 rounded-lg border border-slate-800 space-y-1">
                     <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                      <span>Live SMS Payload (Sender: CDAC-MINESAFE)</span>
-                      <span className="text-emerald-400 font-bold">DELIVERED</span>
+                      <span>Live SMS Payload Dispatched</span>
+                      <span className={`font-bold ${
+                        currentDispatchResult.sms_status === 'SENT' ? 'text-emerald-400' :
+                        currentDispatchResult.sms_status === 'FAILED' ? 'text-red-400' : 'text-amber-400'
+                      }`}>{currentDispatchResult.sms_status || 'SIMULATED'}</span>
                     </div>
-                    <p className="text-[11px] font-sans leading-relaxed text-slate-100 italic bg-slate-800/80 p-2 rounded border border-slate-700">
-                      "{currentDispatchResult.message_preview}"
-                    </p>
+                    <pre className="text-[11px] font-mono leading-relaxed text-slate-100 whitespace-pre-wrap bg-slate-800/80 p-2 rounded border border-slate-700">
+                      {currentDispatchResult.message_preview}
+                    </pre>
                   </div>
                 </div>
               )}

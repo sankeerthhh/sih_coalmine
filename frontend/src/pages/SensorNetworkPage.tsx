@@ -6,14 +6,21 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { useSensorStore } from '../store/sensorStore';
 import { api } from '../services/api';
 import { MeshNetwork, SensorNode } from '../types';
-import { getCalculatedNodeStatus, getActiveAlertForNode } from '../utils/statusUtils';
+import { getCalculatedNodeStatus } from '../utils/statusUtils';
 
 interface SensorNetworkPageProps {
   onNavigatePage: (page: any) => void;
 }
 
 export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigatePage }) => {
-  const { sensors, selectedSensorId, setSelectedSensorId, activeScenario, alerts } = useSensorStore();
+  const {
+    sensors,
+    selectedSensorId,
+    setSelectedSensorId,
+    activeScenario,
+    dataSourceMode,
+    isHardwareConnected
+  } = useSensorStore();
   const [meshData, setMeshData] = useState<MeshNetwork | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -26,7 +33,7 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
   const filteredSensors = sensors.filter((s) => {
     const q = searchQuery.toLowerCase();
     const matchesSearch = s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || s.panel_id.toLowerCase().includes(q);
-    const calculatedStatus = getCalculatedNodeStatus(s, activeScenario, alerts);
+    const calculatedStatus = getCalculatedNodeStatus(s, activeScenario, dataSourceMode);
     const matchesStatus = statusFilter === 'ALL' || calculatedStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -51,12 +58,29 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
             <span>/</span>
             <span className="font-semibold text-slate-900">Sensor Network</span>
           </div>
-          <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Network className="w-4 h-4 text-blue-600" />
-            Wireless Surface Mesh Network & Sensor Telemetry
-          </h2>
-          <p className="text-xs text-slate-500">
-            Multi-hop LoRa DAG topology, link budgets, and real-time geotechnical telemetry
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <Network className="w-4 h-4 text-blue-600" />
+              Wireless Surface Mesh Network & Sensor Telemetry
+            </h2>
+            <span className={`px-2 py-0.5 rounded font-mono font-bold uppercase text-[10px] tracking-wide border ${
+              dataSourceMode === 'SIMULATION'
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : isHardwareConnected
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : 'bg-amber-50 text-amber-800 border-amber-300'
+            }`}>
+              {dataSourceMode === 'SIMULATION'
+                ? 'SIMULATION / DEMO DATA'
+                : isHardwareConnected
+                ? 'LIVE HARDWARE DATA'
+                : 'WAITING FOR HARDWARE TELEMETRY'}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {dataSourceMode === 'HARDWARE' && !isHardwareConnected
+              ? "Standing by for physical ESP32 LoRa Gateway packets. Ingest on POST /api/v1/sensors/ingest."
+              : "Multi-hop LoRa DAG topology, link budgets, and real-time geotechnical telemetry"}
           </p>
         </div>
 
@@ -69,6 +93,20 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
           <span>Back to Dashboard</span>
         </button>
       </div>
+
+      {/* Standby Banner when LIVE HARDWARE mode is active and waiting for physical packets */}
+      {dataSourceMode === 'HARDWARE' && !isHardwareConnected && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 flex items-center justify-between gap-3 text-amber-900 text-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
+            <span className="font-bold">Waiting for hardware telemetry:</span>
+            <span>Connect ESP32 LoRa Gateway to serial bridge or send telemetry via POST /api/v1/sensors/ingest.</span>
+          </div>
+          <span className="font-mono bg-amber-100 px-2 py-0.5 rounded border border-amber-300 font-bold">
+            NO SIMULATED DATA SUBSTITUTED
+          </span>
+        </div>
+      )}
 
       {/* 1. Wireless Surface Mesh Network Topology Visualizer */}
       <MeshVisualizer
@@ -192,8 +230,7 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
                 const resultantTilt = reading 
                   ? Math.sqrt(reading.tilt_x**2 + reading.tilt_y**2).toFixed(2) 
                   : '0.00';
-                const calculatedStatus = getCalculatedNodeStatus(node, activeScenario, alerts);
-                const activeAlert = getActiveAlertForNode(node, alerts);
+                const calculatedStatus = getCalculatedNodeStatus(node, activeScenario);
 
                 return (
                   <tr
@@ -216,21 +253,7 @@ export const SensorNetworkPage: React.FC<SensorNetworkPageProps> = ({ onNavigate
                     </td>
 
                     <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <StatusBadge status={calculatedStatus} size="sm" />
-                        {activeAlert && (
-                          <span
-                            title={`${activeAlert.title} (${activeAlert.id})`}
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide border flex items-center gap-1 ${
-                              activeAlert.severity === 'CRITICAL'
-                                ? 'bg-red-100 text-red-700 border-red-300 animate-pulse'
-                                : 'bg-amber-100 text-amber-800 border-amber-300'
-                            }`}
-                          >
-                            ⚠ {activeAlert.severity}
-                          </span>
-                        )}
-                      </div>
+                      <StatusBadge status={calculatedStatus} size="sm" />
                     </td>
 
                     <td className="py-2.5 px-3 font-mono font-semibold text-slate-900">

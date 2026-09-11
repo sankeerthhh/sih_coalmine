@@ -65,6 +65,88 @@ export interface RiskAssessment {
   explanation: string;
 }
 
+export interface MlPrediction {
+  predicted_class: 'NORMAL' | 'WARNING' | 'HIGH' | 'CRITICAL';
+  confidence: number;
+  probabilities: {
+    NORMAL: number;
+    WARNING: number;
+    HIGH: number;
+    CRITICAL: number;
+    [key: string]: number;
+  };
+  weighted_severity: number;
+  model_type: string;
+  feature_importances?: Record<string, number>;
+  scientific_disclaimer?: string;
+}
+
+export interface SubsidenceFingerprint {
+  state: 'STABLE' | 'EARLY_DEFORMATION' | 'PROGRESSIVE_SUBSIDENCE' | 'ACCELERATING_SUBSIDENCE' | 'CRITICAL_DEFORMATION';
+  fingerprint_state?: string;
+  summary: string;
+  signals: string[];
+  contributing_signals?: string[];
+  severity_index: number;
+  is_actionable?: boolean;
+}
+
+export interface EarlyWarning {
+  level: 'NORMAL' | 'WATCH' | 'WARNING' | 'HIGH_RISK' | 'CRITICAL';
+  warning_level?: string;
+  urgency: string;
+  action: string;
+  recommended_action?: string;
+  panel_id?: string;
+  target_entity?: string;
+  fused_risk_score?: number;
+  color_code?: string;
+}
+
+export interface SpatialZone {
+  zone_id: string;
+  zone_name: string;
+  panel_id: string;
+  risk_level: 'NORMAL' | 'WARNING' | 'HIGH' | 'CRITICAL';
+  average_risk_score: number;
+  maximum_displacement_mm?: number;
+  maximum_tilt_deg?: number;
+  total_nodes_count?: number;
+  affected_nodes_count: number;
+  affected_node_ids: string[];
+  ml_probability: number;
+  fingerprint_state: string;
+  centroid: {
+    latitude: number;
+    longitude: number;
+  };
+  influence_radius_meters: number;
+  depth_meters?: number;
+  recommended_action: string;
+  scientific_disclaimer?: string;
+}
+
+export interface MineHierarchy {
+  id: string;
+  mine_id?: string;
+  name: string;
+  subsidiary?: string;
+  organization?: string;
+  region?: string;
+  latitude: number;
+  longitude: number;
+  panels_count?: number;
+  panels: Array<{
+    id?: string;
+    panel_id?: string;
+    name: string;
+    status?: string;
+    depth_meters?: number;
+    extraction_method?: string;
+    risk_level?: string;
+  }>;
+}
+
 export interface RiskSummary {
   current_risk_score: number;
   risk_classification: 'NORMAL' | 'WARNING' | 'HIGH' | 'CRITICAL';
@@ -75,6 +157,16 @@ export interface RiskSummary {
   scientific_disclaimer: string;
   explanation?: string;
   latest_assessment?: RiskAssessment | null;
+  geotechnical_score?: number;
+  ml_severity_score?: number;
+  fusion_weights?: {
+    geotechnical: number;
+    supervised_ml: number;
+    anomaly_forest: number;
+  };
+  ml_prediction?: MlPrediction;
+  fingerprint?: SubsidenceFingerprint;
+  early_warning?: EarlyWarning;
 }
 
 export interface Alert {
@@ -149,9 +241,16 @@ export interface SystemHealth {
   memory_usage_mb: number;
 }
 
+export type DataSourceMode = 'SIMULATION' | 'HARDWARE';
+
 export interface SimulatorStatus {
+  data_source: DataSourceMode;
   is_running: boolean;
   current_scenario: string;
   active_affected_nodes: string[];
   tick_count: number;
+  hardware_connected?: boolean;
+  last_hardware_telemetry_at?: string | null;
+  hardware_nodes_count?: number;
 }
+

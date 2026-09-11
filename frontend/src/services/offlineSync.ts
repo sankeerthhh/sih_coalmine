@@ -79,6 +79,10 @@ class OfflineSyncService {
     console.log('[OFFLINE-SYNC] All buffered actions synced with cloud server.');
   }
 
+  public async syncPending() {
+    return this.flushQueue();
+  }
+
   public subscribe(cb: (online: boolean, pendingCount: number) => void) {
     this.listeners.push(cb);
     cb(this.isOnline, this.queue.length);

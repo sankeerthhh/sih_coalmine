@@ -32,3 +32,32 @@ class AlertAcknowledgeRequest(BaseModel):
 class AlertResolveRequest(BaseModel):
     resolved_by: str = "Mine Safety Officer"
     notes: Optional[str] = None
+
+
+class TestBroadcastRequest(BaseModel):
+    panel_id: str = "PANEL-B3"
+    sms_target_name: Optional[str] = None
+    sms_target_phone: Optional[str] = None
+    email_recipient_name: Optional[str] = None
+    email_recipient_address: Optional[str] = None
+    siren_location: Optional[str] = None
+    siren_relay_channel: Optional[str] = None
+    custom_message: Optional[str] = None
+
+
+class ChannelDeliveryResult(BaseModel):
+    status: str  # "SENT" | "SIMULATED" | "FAILED"
+    provider: str
+    recipient: str
+    receipt: Optional[str] = None
+    error: Optional[str] = None
+    details: Optional[str] = None
+    timestamp: str
+
+
+class NotificationProviderStatus(BaseModel):
+    email_configured: bool
+    email_provider: str
+    sms_configured: bool
+    sms_provider: str
+    setup_notes: str

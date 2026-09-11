@@ -6,7 +6,12 @@ import {
   RiskSummary,
   Alert,
   MeshNetwork,
-  SystemHealth
+  SystemHealth,
+  MlPrediction,
+  SubsidenceFingerprint,
+  EarlyWarning,
+  SpatialZone,
+  MineHierarchy
 } from '../types';
 
 export const MOCK_USER: User = {
@@ -729,6 +734,41 @@ export const MOCK_SUMMARY: DashboardSummary = {
   disclaimer: "Real-time decision support system for Smart India Hackathon."
 };
 
+export const MOCK_ML_PREDICTION: MlPrediction = {
+  predicted_class: "NORMAL",
+  confidence: 0.94,
+  probabilities: {
+    NORMAL: 0.94,
+    WARNING: 0.04,
+    HIGH: 0.015,
+    CRITICAL: 0.005
+  },
+  weighted_severity: 2.5,
+  model_type: "Random Forest Classifier (Supervised)",
+  scientific_disclaimer: "Prototype ML Model — Trained on Simulated/Labeled Data"
+};
+
+export const MOCK_FINGERPRINT: SubsidenceFingerprint = {
+  state: "STABLE",
+  summary: "Quiescent strata equilibrium; all multi-sensor parameters within baseline tolerance.",
+  signals: [
+    "Surface displacement within baseline (< 2.5 mm)",
+    "Angular tilt within elastic equilibrium (< 0.4°)",
+    "Full continuity on crack detection circuits",
+    "Spatial neighbor correlation normal"
+  ],
+  severity_index: 1,
+  is_actionable: false
+};
+
+export const MOCK_EARLY_WARNING: EarlyWarning = {
+  level: "NORMAL",
+  urgency: "SAFE",
+  action: "All surface nodes show elastic equilibrium. Standard 6-second LoRa monitoring active.",
+  panel_id: "PANEL-B3",
+  target_entity: "Panel B3 (Active Depillaring)"
+};
+
 export const MOCK_RISK_SUMMARY: RiskSummary = {
   current_risk_score: 14.5,
   risk_classification: "NORMAL",
@@ -742,7 +782,17 @@ export const MOCK_RISK_SUMMARY: RiskSummary = {
   },
   trend_direction: "STABLE",
   scientific_disclaimer: "Prototype / Simulated Sensor Data. Decision support platform.",
-  explanation: "All panels within permissible geotechnical tolerance limits. Normal operations."
+  explanation: "All panels within permissible geotechnical tolerance limits. Normal operations.",
+  geotechnical_score: 12.0,
+  ml_severity_score: 2.5,
+  fusion_weights: {
+    geotechnical: 0.60,
+    supervised_ml: 0.25,
+    anomaly_forest: 0.15
+  },
+  ml_prediction: MOCK_ML_PREDICTION,
+  fingerprint: MOCK_FINGERPRINT,
+  early_warning: MOCK_EARLY_WARNING
 };
 
 export const MOCK_ALERTS: Alert[] = [
@@ -886,3 +936,94 @@ export const MOCK_SYSTEM_HEALTH: SystemHealth = {
   cpu_usage_pct: 18.4,
   memory_usage_mb: 138.2
 };
+
+export const MOCK_MINES: MineHierarchy[] = [
+  {
+    id: "MINE-SECL-KORBA",
+    name: "Korba Underground Coal Mine (Block-A)",
+    organization: "Ministry of Coal / South Eastern Coalfields Limited",
+    latitude: 22.3595,
+    longitude: 82.7501,
+    panels_count: 5,
+    panels: [
+      { id: "PANEL-A1", name: "Panel A1 (Sealed Gaf)", status: "INACTIVE", risk_level: "NORMAL" },
+      { id: "PANEL-A2", name: "Panel A2 (Post-Depillared)", status: "INACTIVE", risk_level: "NORMAL" },
+      { id: "PANEL-B1", name: "Panel B1 (Continuous Miner)", status: "ACTIVE", risk_level: "NORMAL" },
+      { id: "PANEL-B2", name: "Panel B2 (Development Section)", status: "ACTIVE", risk_level: "NORMAL" },
+      { id: "PANEL-B3", name: "Panel B3 (Active Depillaring - Core)", status: "ACTIVE", risk_level: "NORMAL" }
+    ]
+  },
+  {
+    id: "MINE-SECL-RAIGARH",
+    name: "Raigarh Underground Coalfield (Block-B)",
+    organization: "Ministry of Coal / South Eastern Coalfields Limited",
+    latitude: 21.8974,
+    longitude: 83.3950,
+    panels_count: 2,
+    panels: [
+      { id: "PANEL-C1", name: "Panel C1 (Longwall Retreat)", status: "ACTIVE", risk_level: "NORMAL" },
+      { id: "PANEL-C2", name: "Panel C2 (Continuous Miner Development)", status: "ACTIVE", risk_level: "NORMAL" }
+    ]
+  }
+];
+
+export const MOCK_SPATIAL_ZONES: SpatialZone[] = [
+  {
+    zone_id: "ZONE-B3-CORE",
+    zone_name: "Panel B3 Active Depillaring Epicenter Zone",
+    panel_id: "PANEL-B3",
+    risk_level: "NORMAL",
+    average_risk_score: 14.5,
+    maximum_displacement_mm: 1.8,
+    maximum_tilt_deg: 0.35,
+    total_nodes_count: 8,
+    affected_nodes_count: 0,
+    affected_node_ids: [],
+    ml_probability: 0.05,
+    fingerprint_state: "STABLE",
+    centroid: { latitude: 22.3642, longitude: 82.7578 },
+    influence_radius_meters: 80.5,
+    depth_meters: 210.0,
+    recommended_action: "Maintain standard automated 6-second surface mesh telemetry monitoring.",
+    scientific_disclaimer: "Prototype Spatial Zone Prediction — Based on Angle of Draw (21°)"
+  },
+  {
+    zone_id: "ZONE-B2-DEV",
+    zone_name: "Panel B2 Development & Heading Section",
+    panel_id: "PANEL-B2",
+    risk_level: "NORMAL",
+    average_risk_score: 11.2,
+    maximum_displacement_mm: 1.2,
+    maximum_tilt_deg: 0.22,
+    total_nodes_count: 6,
+    affected_nodes_count: 0,
+    affected_node_ids: [],
+    ml_probability: 0.03,
+    fingerprint_state: "STABLE",
+    centroid: { latitude: 22.3635, longitude: 82.7525 },
+    influence_radius_meters: 71.0,
+    depth_meters: 185.0,
+    recommended_action: "Routine continuous surface monitoring.",
+    scientific_disclaimer: "Prototype Spatial Zone Prediction"
+  },
+  {
+    zone_id: "ZONE-B1-CM",
+    zone_name: "Panel B1 Continuous Miner Section",
+    panel_id: "PANEL-B1",
+    risk_level: "NORMAL",
+    average_risk_score: 9.8,
+    maximum_displacement_mm: 0.9,
+    maximum_tilt_deg: 0.18,
+    total_nodes_count: 4,
+    affected_nodes_count: 0,
+    affected_node_ids: [],
+    ml_probability: 0.02,
+    fingerprint_state: "STABLE",
+    centroid: { latitude: 22.3620, longitude: 82.7465 },
+    influence_radius_meters: 73.0,
+    depth_meters: 190.0,
+    recommended_action: "Quiescent strata equilibrium. Normal operations.",
+    scientific_disclaimer: "Prototype Spatial Zone Prediction"
+  }
+];
+
